@@ -1,0 +1,15 @@
+.*
+*.log
+node_modules
+
+!.git*
+!.*rc
+!.eslint
+!.editorconfig
+!.vscode
+!.tool-versions
+!*.route.ts
+!*.route.tsx
+
+dist
+deno.lock

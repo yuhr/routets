@@ -1,0 +1,13 @@
+{
+	"editor.formatOnSave": true,
+	"editor.codeActionsOnSave": { "source.fixAll.eslint": true },
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"files.removeFinalNewlines": true,
+	"files.associations": {
+		".*rc": "json",
+		".eslintrc": "jsonc"
+	},
+	"typescript.tsdk": "node_modules/typescript/lib",
+	"deno.enable": true,
+	"deno.lint": false
+}
