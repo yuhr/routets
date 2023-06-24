@@ -119,8 +119,10 @@ const emit = async (root: URL, routes: Routes) => {
 		})
 		.join("\n")
 	const self = new URL(import.meta.url)
-	const specifierRouter = isFileUrl(self) ? relative(root.pathname, self.pathname) : self
-	content += `\nimport Router from "./${specifierRouter}"`
+	const specifierRouter = isFileUrl(self)
+		? `./${relative(root.pathname, self.pathname)}`
+		: self.href
+	content += `\nimport Router from "${specifierRouter}"`
 	content += `\nimport { serve } from "https://deno.land/std@0.192.0/http/server.ts"`
 	content += `\nconst routetslist = ${Deno.inspect([...map.entries()])} as const`
 	content += `\nawait serve(await new Router(routetslist))`
