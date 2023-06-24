@@ -47,6 +47,46 @@ import { serve } from "https://deno.land/std@0.192.0/http/server.ts"
 await serve(await new Router({ root: import.meta.resolve("./.") }))
 ```
 
+## Dynamic Routes
+
+`routets` supports dynamic routes by [URL Pattern API](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API). Please refer to the MDN documentation for the syntax and examples.
+
+Matched parts of the pathname will be passed to the second argument of the handler. For example, when you have `:dynamic.route.ts` with the content being:
+
+```typescript
+import Route from "https://lib.deno.dev/x/routets@v1/Route.ts"
+
+export default new Route(async (request, slugs) => {
+	return new Response(JSON.stringify(slugs), { headers: { "Content-Type": "application/json" } })
+})
+```
+
+Accessing `/route` will show you `{"dynamic":"route"}`.
+
+## Route Precedence
+
+Once you have started using dynamic routes, you may notice it is unclear which route will be matched when multiple dynamic routes are valid for the requested pathname. For example, if you have a file named `greet.route.ts` and another file named `*.route.ts`, which one will be matched when you access `/greet`?
+
+By default, `routets` doesn't do anything smart, and just performs codepoint-wise lexicographic ordering. So, in the above example, `*.route.ts` will be matched first, as `*` precedes `g` in Unicode. If you want to change this behavior, just named-export a number as `precedence` from each route:
+
+```typescript
+// in `*.route.ts`
+export const precedence = 0
+```
+
+```typescript
+// in `greet.route.ts`
+export const precedence = 9
+```
+
+Routes with greater precedences are matched first. Think of it as `z-index` in CSS. So, this time `greet.route.ts` will be matched first.
+
+If `precedence` is not exported, it implies 0.
+
+## Route Fallthrough
+
+If a route returns nothing (namely `undefined`), then it fallthroughs to the next matching route.
+
 ## Extending `Route`
 
 If you want to insert middlewares before/after an execution of handlers, you can extend the `Route` class as usual in TypeScript.
@@ -95,35 +135,6 @@ export default new RouteReact(async () => {
 })
 ```
 
-## Route Precedence
-
-Once you have started using dynamic routes, you may notice it is unclear which route will be matched when multiple dynamic routes are valid for the requested pathname. For example, if you have a file named `greet.route.ts` and another file named `*.route.ts`, which one will be matched when you access `/greet`?
-
-By default, `routets` doesn't do anything smart, and just performs codepoint-wise lexicographic ordering. So, in the above example, `*.route.ts` will be matched first, as `*` precedes `g` in Unicode. If you want to change this behavior, you can use the `precedence` option in the `Router` constructor (in the CLI this isn't available):
-
-```typescript
-await serve(
-	await new Router({
-		root: import.meta.resolve("./."),
-		// Comparison function for pathname patterns.
-		precedence: (a, b) => {
-			// Sorry for the dumb algorithm :P
-			const wildcard = /\/\*/
-			if (wildcard.test(a)) return 1
-			if (wildcard.test(b)) return -1
-			// Returning `undefined` fallbacks to the default behavior.
-			return undefined
-		},
-	}),
-)
-```
-
-Improved handling for this is a planned feature.
-
-## Route Fallthrough
-
-If a route returns nothing (namely `undefined`), then it fallthroughs to the next matching route.
-
 ## Suffix Restrictions
 
 Changing the route filename suffix (`route` by default) is possible by `--suffix` when using the CLI and by `suffix` option when using the `Router` constructor. Although, there are some restrictions on the shape of suffixes:
@@ -138,7 +149,7 @@ These are by design and will never be lifted.
 
 `routets` uses dynamic imports to discover routes. This works well locally, but can be a problem if you want to get it to work with environments that don't support dynamic imports, such as [Deno Deploy](https://github.com/denoland/deploy_feedback/issues/1). For this use case, by default the `routets` CLI and the `Router` constructor do generate a server module `serve.gen.ts` that statically import routes. This module can directly be used as the entrypoint for Deno Deploy.
 
-## Difference From `fsrouter`
+## Difference from `fsrouter`
 
 There exists a similar package [`fsrouter`](https://deno.land/x/fsrouter) which has quite the same UX overall, but slightly different in:
 
