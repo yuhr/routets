@@ -91,15 +91,21 @@ const enumerate = async ({ root, suffix, compare }: OptionsNormalized): Promise<
 	const distree = await Distree.fromDirectory(rootReal, async path => {
 		const pathname = `/${relative(rootReal, path)}`.match(regExp)?.groups?.pattern
 		if (pathname) {
-			const { default: route } = await import(toFileUrl(path).href)
+			const { default: route, precedence = 0 } = await import(toFileUrl(path).href)
+			if (typeof precedence !== "number") throw new Error("Precedence must be a number.")
+			if (Number.isNaN(precedence)) throw new Error("`NaN` is not a valid precedence.")
 			if (Route.isRoute(route)) {
 				const pattern = new URLPatternPretty({ pathname })
-				return Object.assign(route, { pattern })
+				return Object.assign(route, { pattern, precedence })
 			}
 		}
 		throw undefined
 	})
-	return [...distree].sort(([, a], [, b]) => compare(a.pattern.pathname, b.pattern.pathname))
+	return [...distree].sort(([, a], [, b]) => {
+		const precedence = b.precedence - a.precedence
+		if (precedence !== 0) return precedence
+		return compare(a.pattern.pathname, b.pattern.pathname)
+	})
 }
 
 class IdentifierPretty {
@@ -174,6 +180,10 @@ namespace Router {
 		readonly write?: boolean | undefined
 		/**
 		 * A function to compare two pathname patterns. If unspecified or `undefined` is returned, it fallbacks to the codepoint-wise lexicographical order.
+		 *
+		 * Probably you shouldn't use this option. Instead, just named-export a number as `precedence` from each route. Greater wins. This option is only used when the exported `precedence` is the same.
+		 *
+		 * @deprecated This will be removed in the next major release.
 		 */
 		readonly precedence?: ((patternA: string, patternB: string) => number | undefined) | undefined
 	}
