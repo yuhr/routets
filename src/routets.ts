@@ -1,4 +1,4 @@
-import Router from "../src/Router.ts"
+import Router from "./Router.ts"
 import { delay } from "https://deno.land/std@0.192.0/async/delay.ts"
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts"
 import { Command } from "https://deno.land/x/cliffy@v0.25.7/command/command.ts"
