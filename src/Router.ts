@@ -91,7 +91,7 @@ const enumerate = async ({ root, suffix, compare }: OptionsNormalized): Promise<
 	const distree = await Distree.fromDirectory(rootReal, async path => {
 		const pathname = `/${relative(rootReal, path)}`.match(regExp)?.groups?.pattern
 		if (pathname) {
-			const { default: route } = await import(path)
+			const { default: route } = await import(toFileUrl(path).href)
 			if (Route.isRoute(route)) {
 				const pattern = new URLPatternPretty({ pathname })
 				return Object.assign(route, { pattern })
