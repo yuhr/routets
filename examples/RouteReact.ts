@@ -4,8 +4,8 @@ import React, { isValidElement } from "https://esm.sh/react@18.2.0"
 
 class RouteReact extends Route {
 	constructor(handler: Route.Handler<React.ReactElement<unknown>>) {
-		super(async (request, slugs) => {
-			const response = await handler(request, slugs)
+		super(async context => {
+			const response = await handler(context)
 			if (isValidElement(response))
 				return new Response(renderToStaticMarkup(response), {
 					headers: { "Content-Type": "text/html; charset=utf-8" },
