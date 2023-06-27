@@ -95,17 +95,29 @@ To exercise this, here we add support for returning a React element from handler
 
 ```typescript
 import Route from "https://lib.deno.dev/x/routets@v1/Route.ts"
-import { renderToStaticMarkup } from "https://esm.sh/react-dom@18.2.0/server"
-import React, { isValidElement } from "https://esm.sh/react@18.2.0"
+import { renderToReadableStream } from "https://esm.sh/react-dom@18.2.0/server"
+import { isValidElement, ReactElement, Suspense } from "https://esm.sh/react@18.2.0"
 
 class RouteReact extends Route {
-	constructor(handler: Route.Handler<React.ReactElement<unknown>>) {
+	constructor(handler: Route.Handler<ReactElement<unknown>>) {
 		super(async (request, slugs) => {
 			const response = await handler(request, slugs)
 			if (isValidElement(response))
-				return new Response(renderToStaticMarkup(response), {
-					headers: { "Content-Type": "text/html; charset=utf-8" },
-				})
+				return new Response(
+					await renderToReadableStream(
+						<html>
+							<body>
+								<Suspense fallback={<p>Loading...</p>}>{response}</Suspense>
+							</body>
+						</html>,
+					),
+					{
+						headers: {
+							"Content-Type": "text/html; charset=utf-8",
+							"X-Content-Type-Options": "nosniff",
+						},
+					},
+				)
 			return response
 		})
 	}
@@ -130,10 +142,27 @@ That's it! You can now create a route with it:
 ```typescript
 import RouteReact from "./RouteReact.ts"
 
+let done = false
+const Component = () => {
+	if (!done) {
+		throw new Promise(resolve =>
+			setTimeout(() => {
+				done = true
+				resolve(undefined)
+			}, 3000),
+		)
+	} else {
+		done = false
+		return <b>Hello, World!</b>
+	}
+}
+
 export default new RouteReact(async () => {
-	return <b>Hello, World!</b>
+	return <Component />
 })
 ```
+
+In a browser, this will show you “Loading…” for 3 seconds, and then “Hello, World!”.
 
 ## Suffix Restrictions
 
@@ -147,7 +176,11 @@ These are by design and will never be lifted.
 
 ## Deploying to Deno Deploy
 
-`routets` uses dynamic imports to discover routes. This works well locally, but can be a problem if you want to get it to work with environments that don't support dynamic imports, such as [Deno Deploy](https://github.com/denoland/deploy_feedback/issues/1). For this use case, by default the `routets` CLI and the `Router` constructor do generate a server module `serve.gen.ts` that statically import routes. This module can directly be used as the entrypoint for Deno Deploy.
+`routets` uses dynamic imports to discover routes. This works well locally, but can be a problem if you want to get it to work with environments that don't support dynamic imports, such as [Deno Deploy](https://github.com/denoland/deploy_feedback/issues/1).
+
+For this use case, by default the `routets` CLI and the `Router` constructor do generate a server module `serve.gen.ts` that statically imports routes. This module can directly be used as the entrypoint for Deno Deploy.
+
+You can disable this behavior by `--no-write` option when using the CLI and by `write` option when using the `Router` constructor.
 
 ## Difference from `fsrouter`
 
