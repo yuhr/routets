@@ -1,6 +1,15 @@
 namespace Route {
 	export type Slugs = Record<string, string | undefined>
-	export type Context = { request: Request; slugs: Slugs }
+	export type Context = {
+		/** The original `Request` object. */
+		request: Request
+		/** The captured substrings of the pathname. */
+		slugs: Slugs
+		/** The relative path to the route file from the serving root directory, including the suffix and the extension. */
+		path: string
+		/** A clone of the instance of `URLPattern` that is used to match this route. */
+		pattern: URLPattern
+	}
 	export type Handler<
 		ReturnType = Response | void,
 		AdditionalParameters extends readonly unknown[] = [],
