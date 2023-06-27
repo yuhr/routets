@@ -12,9 +12,13 @@ Vanilla filesystem-based routing for Deno.
 
 No other stuff. That's all. I was always tired of fullstack frameworks such as Fresh or Aleph.js, because of the tightly coupled design that forces users to be on the rails. So I ended up making this stupid-simple solution, which is aimed to be:
 
-- No magic
+- No magic and no blackbox
 - Small size and less dependency
 - No squatted slugs like `/_app` or `/_404`
+- No lock-in to a specific JSX implementation
+- No lock-in to a specific architecture; MPA or SPA, SSR or CSR, etc.
+
+So, `routets` is deliberately less-featured. It just provides a basic building block for writing web servers in Deno, leveraging Create Your Own™ style of experience.
 
 ## Basic Usage
 
@@ -47,7 +51,9 @@ import { serve } from "https://deno.land/std@0.192.0/http/server.ts"
 await serve(await new Router({ root: import.meta.resolve("./.") }))
 ```
 
-## Dynamic Routes
+## Advanced Usage
+
+### Dynamic Routes
 
 `routets` supports dynamic routes by [URL Pattern API](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API). Please refer to the MDN documentation for the syntax and examples.
 
@@ -63,7 +69,7 @@ export default new Route(async (request, slugs) => {
 
 Accessing `/route` will show you `{"dynamic":"route"}`.
 
-## Route Precedence
+### Route Precedence
 
 Once you have started using dynamic routes, you may notice it is unclear which route will be matched when multiple dynamic routes are valid for the requested pathname. For example, if you have a file named `greet.route.ts` and another file named `*.route.ts`, which one will be matched when you access `/greet`?
 
@@ -83,11 +89,11 @@ Routes with greater precedences are matched first. Think of it as `z-index` in C
 
 If `precedence` is not exported, it implies 0.
 
-## Route Fallthrough
+### Route Fallthrough
 
 If a route returns nothing (namely `undefined`), then it fallthroughs to the next matching route.
 
-## Extending `Route`
+### Extending `Route`
 
 If you want to insert middlewares before/after an execution of handlers, you can extend the `Route` class as usual in TypeScript.
 
@@ -164,7 +170,7 @@ export default new RouteReact(async () => {
 
 In a browser, this will show you “Loading…” for 3 seconds, and then “Hello, World!”.
 
-## Suffix Restrictions
+### Suffix Restrictions
 
 Changing the route filename suffix (`route` by default) is possible by `--suffix` when using the CLI and by `suffix` option when using the `Router` constructor. Although, there are some restrictions on the shape of suffixes:
 
