@@ -1,13 +1,10 @@
 namespace Route {
 	export type Slugs = Record<string, string | undefined>
+	export type Context = { request: Request; slugs: Slugs }
 	export type Handler<
 		ReturnType = Response | void,
 		AdditionalParameters extends readonly unknown[] = [],
-	> = (
-		request: Request,
-		slugs: Slugs,
-		...additionalParameters: AdditionalParameters
-	) => Promise<ReturnType>
+	> = (context: Context, ...additionalParameters: AdditionalParameters) => Promise<ReturnType>
 }
 
 interface Route extends Route.Handler {}

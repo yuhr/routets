@@ -222,7 +222,8 @@ class Router {
 					const match = route.pattern.exec(url)
 					if (match) {
 						try {
-							const response = await route(request, match.pathname.groups)
+							const slugs = match.pathname.groups
+							const response = await route({ request, slugs })
 							if (response instanceof Response) return response
 							else if (response === undefined) continue
 							else return unexpected(response, url.pathname)

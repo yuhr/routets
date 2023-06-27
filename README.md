@@ -62,7 +62,7 @@ Matched parts of the pathname will be passed to the second argument of the handl
 ```typescript
 import Route from "https://lib.deno.dev/x/routets@v1/Route.ts"
 
-export default new Route(async (request, slugs) => {
+export default new Route(async ({ slugs }) => {
 	return new Response(JSON.stringify(slugs), { headers: { "Content-Type": "application/json" } })
 })
 ```
@@ -106,8 +106,8 @@ import { isValidElement, ReactElement, Suspense } from "https://esm.sh/react@18.
 
 class RouteReact extends Route {
 	constructor(handler: Route.Handler<ReactElement<unknown>>) {
-		super(async (request, slugs) => {
-			const response = await handler(request, slugs)
+		super(async context => {
+			const response = await handler(context)
 			if (isValidElement(response))
 				return new Response(
 					await renderToReadableStream(
