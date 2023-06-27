@@ -218,12 +218,13 @@ class Router {
 			const routes = await populate(options)
 			const handler = async (request: Request): Promise<Response> => {
 				const url = new URL(request.url)
-				for (const [, route] of routes) {
+				for (const [path, route] of routes) {
 					const match = route.pattern.exec(url)
 					if (match) {
 						try {
 							const slugs = match.pathname.groups
-							const response = await route({ request, slugs })
+							const pattern = new URLPattern(route.pattern)
+							const response = await route({ request, slugs, path, pattern })
 							if (response instanceof Response) return response
 							else if (response === undefined) continue
 							else return unexpected(response, url.pathname)
