@@ -1,6 +1,4 @@
 namespace Route {
-	export type Request = globalThis.Request
-	export type Response = globalThis.Response
 	export type Slugs = Record<string, string | undefined>
 	export type Handler<
 		ReturnType = Response | void,
