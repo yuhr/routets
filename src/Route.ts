@@ -3,13 +3,13 @@ namespace Route {
 	export type Response = globalThis.Response
 	export type Slugs = Record<string, string | undefined>
 	export type Handler<
-		AdditionalReturnType = never,
+		ReturnType = Response | void,
 		AdditionalParameters extends readonly unknown[] = [],
 	> = (
 		request: Request,
 		slugs: Slugs,
 		...additionalParameters: AdditionalParameters
-	) => Promise<Response | void | AdditionalReturnType>
+	) => Promise<ReturnType>
 }
 
 interface Route extends Route.Handler {}
