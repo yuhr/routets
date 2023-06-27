@@ -153,7 +153,6 @@ These are by design and will never be lifted.
 
 There exists a similar package [`fsrouter`](https://deno.land/x/fsrouter) which has quite the same UX overall, but slightly different in:
 
-- License. `routets` is licensed under MPL-2.0, while `fsrouter` is not licensed at all! (ATTOW)
 - Suffix namespacing. `routets` uses namespaced filenames e.g. `greet.route.ts`, while `fsrouter` is just `greet.ts`.
 - Dynamic routing syntax. `routets` uses [URL Pattern API](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API) e.g. `:id.route.ts`, while `fsrouter` uses the [bracket syntax](https://github.com/justinawrey/fsrouter#dynamic-routes) e.g. `[id].ts`. Also, `routets` doesn't support [typed dynamic routes](https://github.com/justinawrey/fsrouter#typed-dynamic-routes).
 - JavaScript file extensions. `routets` doesn't allow `js` or `jsx`, while `fsrouter` does.
