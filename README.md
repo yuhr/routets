@@ -14,7 +14,7 @@ No other stuff. That's all. I was always tired of fullstack frameworks such as F
 
 - No magic and no blackbox
 - Small size and less dependency
-- No squatted slugs like `/_app` or `/_404`
+- No squatted pathnames like `/_app` or `/_404`
 - No lock-in to a specific JSX implementation
 - No lock-in to a specific architecture; MPA or SPA, SSR or CSR, etc.
 
