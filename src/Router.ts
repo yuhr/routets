@@ -222,9 +222,10 @@ class Router {
 					const match = route.pattern.exec(url)
 					if (match) {
 						try {
-							const slugs = match.pathname.groups
+							const captured = match.pathname.groups
+							const slugs = captured
 							const pattern = new URLPattern(route.pattern)
-							const response = await route({ request, slugs, path, pattern })
+							const response = await route({ request, captured, slugs, path, pattern })
 							if (response instanceof Response) return response
 							else if (response === undefined) continue
 							else return unexpected(response, url.pathname)
