@@ -108,23 +108,16 @@ class RouteReact extends Route {
 	constructor(handler: Route.Handler<ReactElement<unknown>>) {
 		super(async context => {
 			const response = await handler(context)
-			if (isValidElement(response))
-				return new Response(
-					await renderToReadableStream(
-						<html>
-							<body>
-								<Suspense fallback={<p>Loading...</p>}>{response}</Suspense>
-							</body>
-						</html>,
-					),
-					{
-						headers: {
-							"Content-Type": "text/html; charset=utf-8",
-							"X-Content-Type-Options": "nosniff",
-						},
-					},
-				)
-			return response
+			return new Response(
+				await renderToReadableStream(
+					<html>
+						<body>
+							<Suspense fallback={<p>Loading...</p>}>{response}</Suspense>
+						</body>
+					</html>,
+				),
+				{ headers: { "Content-Type": "text/html" } },
+			)
 		})
 	}
 }
@@ -147,16 +140,12 @@ That's it! You can now create a route with it:
 
 ```typescript
 import RouteReact from "./RouteReact.ts"
+import { delay } from "https://deno.land/std@0.192.0/async/delay.ts"
 
 let done = false
 const Component = () => {
 	if (!done) {
-		throw new Promise(resolve =>
-			setTimeout(() => {
-				done = true
-				resolve(undefined)
-			}, 3000),
-		)
+		throw delay(3000).then(() => (done = true))
 	} else {
 		done = false
 		return <b>Hello, World!</b>
