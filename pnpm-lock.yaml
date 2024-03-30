@@ -1,5 +1,9 @@
 lockfileVersion: "6.0"
 
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
 devDependencies:
   "@typescript-eslint/eslint-plugin":
     specifier: ^5.60.0
@@ -32,8 +36,8 @@ devDependencies:
     specifier: ^13.2.2
     version: 13.2.2
   prettier:
-    specifier: npm:@yuhr/prettier@^2.8.7
-    version: /@yuhr/prettier@2.8.7
+    specifier: npm:@yuhr/prettier@^3.1.1
+    version: /@yuhr/prettier@3.1.1
   typescript:
     specifier: ^5.1.3
     version: 5.1.3
@@ -322,12 +326,12 @@ packages:
       eslint-visitor-keys: 3.4.1
     dev: true
 
-  /@yuhr/prettier@2.8.7:
+  /@yuhr/prettier@3.1.1:
     resolution:
       {
-        integrity: sha512-x6ZAtvqKZ3vWjbKscy942KEwPRkVXvcp3kMoHBsdTtoKMNxriAAscLjArRxlh5wfEO6RKy89sAVNrov3yF4agQ==,
+        integrity: sha512-HLpfqRJou4VAgvXa868YaOUqPoQBbtCMrytI+c2twotfzQkkIs6FakXf4cMaOgcKqe24/lxu6+kb5m96AGPCOw==,
       }
-    engines: { node: ">=10.13.0" }
+    engines: { node: ">=14" }
     hasBin: true
     dev: true
 
