@@ -21,6 +21,7 @@ type OptionsNormalized = {
 	root: URL
 	suffix: string
 	write: boolean
+	watch: boolean | ((event: Deno.FsEvent) => void | Promise<void>)
 	compare: (patternA: string, patternB: string) => number
 	[normalized]: undefined
 }
@@ -42,11 +43,13 @@ const normalizeOptions = (options: Router.Options | OptionsNormalized): OptionsN
 
 	const write = options.write ?? true
 
+	const watch = options.watch ?? false
+
 	const precedence = options.precedence
 	const compare = (patternA: string, patternB: string) =>
 		precedence?.(patternA, patternB) ?? compareByCodepoints(patternA, patternB)
 
-	return { root, suffix, write, compare, [normalized]: undefined }
+	return { root, suffix, write, watch, compare, [normalized]: undefined }
 }
 
 // <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping>
@@ -86,12 +89,15 @@ const isRoutetslist = (value: unknown): value is Routetslist =>
 	value.every(([key, route]) => typeof key === "string" && Route.isRoute(route))
 
 const enumerate = async ({ root, suffix, compare }: OptionsNormalized): Promise<Routes> => {
+	const timestamp = Date.now()
 	const rootReal = await Deno.realPath(root)
 	const regExp = createRegExpFromSuffix(suffix)
 	const distree = await Distree.fromDirectory(rootReal, async path => {
 		const pathname = `/${relative(rootReal, path)}`.match(regExp)?.groups?.pattern
 		if (pathname) {
-			const { default: route, precedence = 0 } = await import(toFileUrl(path).href)
+			const { default: route, precedence = 0 } = await import(
+				toFileUrl(path).href + "#" + timestamp
+			)
 			if (typeof precedence !== "number") throw new Error("Precedence must be a number.")
 			if (Number.isNaN(precedence)) throw new Error("`NaN` is not a valid precedence.")
 			if (Route.isRoute(route)) {
@@ -135,24 +141,6 @@ const emit = async (root: URL, routes: Routes) => {
 	await Deno.writeTextFile(join(root.pathname, "serve.gen.ts"), content)
 }
 
-const populate = async (options: Router.Options | Routetslist): Promise<Routes> => {
-	if (isRoutetslist(options)) {
-		const routes = options.map<Routes[number]>(([pathname, route]) => {
-			const pattern = new URLPatternPretty({ pathname })
-			return [pathname, Object.assign(route, { pattern })]
-		})
-		logRoutes(routes)
-		return routes
-	} else {
-		const optionsNormalized = normalizeOptions(options)
-		const { root, write } = optionsNormalized
-		const routes = await enumerate(optionsNormalized)
-		logRoutes(routes)
-		if (write) await emit(root, routes)
-		return routes
-	}
-}
-
 const unexpected = (response: unknown, pathname: string) => {
 	console.error(`Unexpected response value for route \`${pathname}\`: ${Deno.inspect(response)}`)
 	console.error("Only a `Response` or `undefined` is allowed to be returned from a handler.")
@@ -178,6 +166,10 @@ namespace Router {
 		 * Whether to generate `serve.gen.ts`, which is necessary for deployments to environments that don't support dynamic imports, such as Deno Deploy.
 		 */
 		readonly write?: boolean | undefined
+		/**
+		 * Whether to watch for changes and update the routes automatically.
+		 */
+		readonly watch?: boolean | ((event: Deno.FsEvent) => void | Promise<void>) | undefined
 		/**
 		 * A function to compare two pathname patterns. If unspecified or `undefined` is returned, it fallbacks to the codepoint-wise lexicographical order.
 		 *
@@ -210,15 +202,60 @@ class Router {
 		return routetslist
 	}
 
+	#routes: Routes = []
+	async #populate(options: Router.Options | Routetslist): Promise<void | never> {
+		if (isRoutetslist(options)) {
+			const routes = options.map<Routes[number]>(([pathname, route]) => {
+				const pattern = new URLPatternPretty({ pathname })
+				return [pathname, Object.assign(route, { pattern })]
+			})
+			this.#routes = routes
+			logRoutes(routes)
+		} else {
+			const optionsNormalized = normalizeOptions(options)
+			const { root, write, watch } = optionsNormalized
+			let routes = await enumerate(optionsNormalized)
+			if (write) await emit(root, routes)
+			this.#routes = routes
+			logRoutes(routes)
+			if (watch) {
+				const { createCache } = await import("jsr:@deno/cache-dir@^0.8.0")
+				const { createGraph } = await import("jsr:@deno/graph@^0.69.10")
+				const cache = createCache()
+				while (true) {
+					const graph = await createGraph(
+						toFileUrl(join(root.pathname, "serve.gen.ts")).href,
+						cache,
+					)
+					const modules = graph.modules
+						.map(({ specifier }) => specifier)
+						.filter(isFileUrl)
+						.map(url => new URL(url).pathname)
+					const watcher = Deno.watchFs([root.pathname, ...modules])
+					for await (const event of watcher) {
+						if (event.paths.every(path => path.endsWith("serve.gen.ts"))) continue
+						routes = await enumerate(optionsNormalized)
+						if (write) await emit(root, routes)
+						this.#routes = routes
+						if (typeof watch === "function") await watch(event)
+						watcher.close()
+					}
+				}
+			}
+		}
+	}
+	async watch(options: Router.Options | Routetslist) {}
+
 	/**
 	 * Creates a router. The return value is a `Promise` that resolves to a [`Handler`](https://deno.land/std@0.192.0/http/server.ts?s=Handler), so you have to `await` before passing to [`serve`](https://deno.land/std@0.192.0/http/server.ts?s=serve).
 	 */
 	constructor(options: Router.Options | Routetslist) {
+		// @ts-expect-error: returning a `Promise<Router.Handler>`
 		return (async () => {
-			const routes = await populate(options)
+			this.#populate(options)
 			const handler = async (request: Request): Promise<Response> => {
 				const url = new URL(request.url)
-				for (const [path, route] of routes) {
+				for (const [path, route] of this.#routes) {
 					const match = route.pattern.exec(url)
 					if (match) {
 						try {
@@ -236,7 +273,7 @@ class Router {
 				}
 				return new Response(undefined, { status: 404 })
 			}
-			return Object.setPrototypeOf(handler, new.target.prototype)
+			return Object.setPrototypeOf(handler, new.target.prototype) as Router.Handler
 		})()
 	}
 }

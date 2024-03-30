@@ -1,5 +1,4 @@
 import Router from "./Router.ts"
-import { delay } from "https://deno.land/std@0.192.0/async/delay.ts"
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts"
 import { Command } from "https://deno.land/x/cliffy@v0.25.7/command/command.ts"
 
@@ -24,21 +23,7 @@ if (import.meta.main) {
 		const { suffix, write, watch } = options
 
 		if (options.serve) {
-			if (watch) {
-				while (true) {
-					const controller = new AbortController()
-					const { signal } = controller
-					serve(await new Router({ root, suffix, write }), { signal })
-					await delay(200)
-					const watcher = Deno.watchFs(root ?? Deno.cwd())
-					for await (const _ of watcher) {
-						controller.abort()
-						watcher.close()
-					}
-				}
-			} else {
-				await serve(await new Router({ root, suffix, write }))
-			}
+			await serve(await new Router({ root, suffix, write, watch }))
 		} else if (write) {
 			await Router.write({ root, suffix })
 		}
