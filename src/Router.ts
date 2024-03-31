@@ -3,6 +3,8 @@ import { relative, isAbsolute, toFileUrl, join } from "https://deno.land/std@0.2
 import { subscribe } from "https://deno.land/x/deno_event_iterator@v2.0.2/mod.ts"
 import Distree from "https://deno.land/x/distree@v2.0.0/index.ts"
 
+const cwd = Deno.cwd()
+
 const isFileUrl = (url: string | URL) => {
 	if (url instanceof URL) return url.protocol === "file:"
 	else return url.startsWith("file://")
@@ -13,7 +15,7 @@ const toUrl = (path: string) => {
 		return new URL(path)
 	} catch (error) {
 		if (isAbsolute(path)) return toFileUrl(path)
-		else return toFileUrl(join(Deno.cwd(), path))
+		else return toFileUrl(join(cwd, path))
 	}
 }
 
@@ -32,7 +34,7 @@ const normalizeOptions = (options: Router.Options | OptionsNormalized): OptionsN
 	if (isOptionsNormalized(options)) return options
 
 	if (options.root === "") throw new Error("Specify a directory to find routes.")
-	const root = toUrl(options.root ?? Deno.cwd())
+	const root = toUrl(options.root ?? cwd)
 	if (!isFileUrl(root)) throw new Error("Only local paths or file URLs are supported.")
 
 	if (options.suffix === "") throw new Error("Suffix cannot be empty.")
@@ -219,13 +221,25 @@ class Router {
 			if (watch) {
 				const { createCache } = await import("jsr:@deno/cache-dir@^0.8.0")
 				const { createGraph } = await import("jsr:@deno/graph@^0.69.10")
+				const { resolve, parseFromString } = await import(
+					"https://esm.sh/v135/@import-maps/resolve@2.0.0"
+				)
+				const importMap = parseFromString(
+					await Deno.readTextFile(join(cwd, "import-map.json")),
+					toFileUrl(cwd + "/"),
+				)
 				const cache = createCache()
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 				while (true) {
-					const graph = await createGraph(
-						toFileUrl(join(root.pathname, "serve.gen.ts")).href,
-						cache,
-					)
+					const graph = await createGraph(toFileUrl(join(root.pathname, "serve.gen.ts")).href, {
+						...cache,
+						resolve: (specifier, referrer) => {
+							const result = resolve(specifier, importMap, new URL(referrer)).resolvedImport?.href
+							if (result === undefined)
+								throw new Error(`Cannot resolve specifier \`${specifier}\` from \`${referrer}\``)
+							return result
+						},
+					})
 					const modules = graph.modules
 						.map(({ specifier }) => specifier)
 						.filter(isFileUrl)
