@@ -13,6 +13,8 @@ namespace Route {
 		path: string
 		/** A clone of the instance of `URLPattern` that is used to match this route. */
 		pattern: URLPattern
+		/** An `AsyncIterable` that yields when the browser is needed to be reloaded as per watch. */
+		reloads: AsyncIterable<void>
 	}
 	export type Handler<
 		ReturnType = Response | void,
