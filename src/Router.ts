@@ -260,7 +260,7 @@ class Router {
 	async watch(options: Router.Options | Routetslist) {}
 
 	/**
-	 * Creates a router. The return value is a `Promise` that resolves to a [`Handler`](https://deno.land/std@0.192.0/http/server.ts?s=Handler), so you have to `await` before passing to [`serve`](https://deno.land/std@0.192.0/http/server.ts?s=serve).
+	 * Creates a router. The return value is a `Promise` that resolves to a [`Deno.ServeHandler`](https://deno.land/api@v1.42.0?s=Deno.ServeHandler), so you have to `await` before passing to [`Deno.serve`](https://deno.land/api@v1.42.0?s=Deno.serve).
 	 */
 	constructor(options: Router.Options | Routetslist) {
 		// @ts-expect-error: returning a `Promise<Router.Handler>`
