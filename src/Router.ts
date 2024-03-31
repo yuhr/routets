@@ -23,7 +23,6 @@ type OptionsNormalized = {
 	suffix: string
 	write: boolean
 	watch: boolean | ((event: Deno.FsEvent) => void | Promise<void>)
-	compare: (patternA: string, patternB: string) => number
 	[normalized]: undefined
 }
 const isOptionsNormalized = (
@@ -46,11 +45,7 @@ const normalizeOptions = (options: Router.Options | OptionsNormalized): OptionsN
 
 	const watch = options.watch ?? false
 
-	const precedence = options.precedence
-	const compare = (patternA: string, patternB: string) =>
-		precedence?.(patternA, patternB) ?? compareByCodepoints(patternA, patternB)
-
-	return { root, suffix, write, watch, compare, [normalized]: undefined }
+	return { root, suffix, write, watch, [normalized]: undefined }
 }
 
 // <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping>
@@ -89,7 +84,7 @@ const isRoutetslist = (value: unknown): value is Routetslist =>
 	Array.isArray(value) &&
 	value.every(([key, route]) => typeof key === "string" && Route.isRoute(route))
 
-const enumerate = async ({ root, suffix, compare }: OptionsNormalized): Promise<Routes> => {
+const enumerate = async ({ root, suffix }: OptionsNormalized): Promise<Routes> => {
 	const timestamp = Date.now()
 	const rootReal = await Deno.realPath(root)
 	const regExp = createRegExpFromSuffix(suffix)
@@ -111,7 +106,7 @@ const enumerate = async ({ root, suffix, compare }: OptionsNormalized): Promise<
 	return [...distree].sort(([, a], [, b]) => {
 		const precedence = b.precedence - a.precedence
 		if (precedence !== 0) return precedence
-		return compare(a.pattern.pathname, b.pattern.pathname)
+		return compareByCodepoints(a.pattern.pathname, b.pattern.pathname)
 	})
 }
 
@@ -180,14 +175,6 @@ namespace Router {
 		 * Whether to watch for changes and update the routes automatically.
 		 */
 		readonly watch?: boolean | ((event: Deno.FsEvent) => void | Promise<void>) | undefined
-		/**
-		 * A function to compare two pathname patterns. If unspecified or `undefined` is returned, it fallbacks to the codepoint-wise lexicographical order.
-		 *
-		 * Probably you shouldn't use this option. Instead, just named-export a number as `precedence` from each route. Greater wins. This option is only used when the exported `precedence` is the same.
-		 *
-		 * @deprecated This will be removed in the next major release.
-		 */
-		readonly precedence?: ((patternA: string, patternB: string) => number | undefined) | undefined
 	}
 }
 
@@ -273,10 +260,9 @@ class Router {
 					if (match) {
 						try {
 							const captured = match.pathname.groups
-							const slugs = captured
 							const pattern = new URLPattern(route.pattern)
 							const reloads = map(subscribe.call(this.#reloads, "reload"), event => {})
-							const response = await route({ request, captured, slugs, path, pattern, reloads })
+							const response = await route({ request, captured, path, pattern, reloads })
 							if (response instanceof Response) return response
 							// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 							else if (response === undefined) continue
