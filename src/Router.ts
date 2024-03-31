@@ -1,5 +1,6 @@
 import Route from "./Route.ts"
-import { relative, isAbsolute, toFileUrl, join } from "https://deno.land/std@0.192.0/path/mod.ts"
+import { relative, isAbsolute, toFileUrl, join } from "https://deno.land/std@0.221.0/path/mod.ts"
+import { subscribe } from "https://deno.land/x/deno_event_iterator@v2.0.2/mod.ts"
 import Distree from "https://deno.land/x/distree@v2.0.0/index.ts"
 
 const isFileUrl = (url: string | URL) => {
@@ -135,9 +136,8 @@ const emit = async (root: URL, routes: Routes) => {
 		? `./${relative(root.pathname, self.pathname)}`
 		: self.href
 	content += `\nimport Router from "${specifierRouter}"`
-	content += `\nimport { serve } from "https://deno.land/std@0.192.0/http/server.ts"`
 	content += `\nconst routetslist = ${Deno.inspect([...map.entries()])} as const`
-	content += `\nawait serve(await new Router(routetslist))`
+	content += `\nDeno.serve(await new Router(routetslist))`
 	await Deno.writeTextFile(join(root.pathname, "serve.gen.ts"), content)
 }
 
@@ -149,6 +149,16 @@ const unexpected = (response: unknown, pathname: string) => {
 const thrown = (error: unknown, pathname: string) => {
 	console.error(`Handler thrown for route \`${pathname}\`: ${Deno.inspect(error)}`)
 	return new Response(undefined, { status: 500 })
+}
+
+const map = async function* <T, U>(
+	source: AsyncIterable<T>,
+	transformer: (item: T, index: number) => U | Promise<U>,
+) {
+	let i = 0
+	for await (const item of source) {
+		yield await transformer(item, i++)
+	}
 }
 
 namespace Router {
@@ -203,6 +213,7 @@ class Router {
 	}
 
 	#routes: Routes = []
+	#reloads = new EventTarget()
 	async #populate(options: Router.Options | Routetslist): Promise<void | never> {
 		if (isRoutetslist(options)) {
 			const routes = options.map<Routes[number]>(([pathname, route]) => {
@@ -222,6 +233,7 @@ class Router {
 				const { createCache } = await import("jsr:@deno/cache-dir@^0.8.0")
 				const { createGraph } = await import("jsr:@deno/graph@^0.69.10")
 				const cache = createCache()
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 				while (true) {
 					const graph = await createGraph(
 						toFileUrl(join(root.pathname, "serve.gen.ts")).href,
@@ -232,13 +244,14 @@ class Router {
 						.filter(isFileUrl)
 						.map(url => new URL(url).pathname)
 					const watcher = Deno.watchFs([root.pathname, ...modules])
+					this.#reloads.dispatchEvent(new Event("reload"))
 					for await (const event of watcher) {
 						if (event.paths.every(path => path.endsWith("serve.gen.ts"))) continue
+						watcher.close()
 						routes = await enumerate(optionsNormalized)
 						if (write) await emit(root, routes)
 						this.#routes = routes
 						if (typeof watch === "function") await watch(event)
-						watcher.close()
 					}
 				}
 			}
@@ -262,8 +275,10 @@ class Router {
 							const captured = match.pathname.groups
 							const slugs = captured
 							const pattern = new URLPattern(route.pattern)
-							const response = await route({ request, captured, slugs, path, pattern })
+							const reloads = map(subscribe.call(this.#reloads, "reload"), event => {})
+							const response = await route({ request, captured, slugs, path, pattern, reloads })
 							if (response instanceof Response) return response
+							// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 							else if (response === undefined) continue
 							else return unexpected(response, url.pathname)
 						} catch (error) {

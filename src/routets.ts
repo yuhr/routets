@@ -1,5 +1,4 @@
 import Router from "./Router.ts"
-import { serve } from "https://deno.land/std@0.192.0/http/server.ts"
 import { Command } from "https://deno.land/x/cliffy@v0.25.7/command/command.ts"
 
 if (import.meta.main) {
@@ -23,7 +22,7 @@ if (import.meta.main) {
 		const { suffix, write, watch } = options
 
 		if (options.serve) {
-			await serve(await new Router({ root, suffix, write, watch }))
+			Deno.serve(await new Router({ root, suffix, write, watch }))
 		} else if (write) {
 			await Router.write({ root, suffix })
 		}

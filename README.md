@@ -46,9 +46,8 @@ Alternatively, of course you can create your own script:
 
 ```typescript
 import Router from "https://lib.deno.dev/x/routets@v2/Router.ts"
-import { serve } from "https://deno.land/std@0.192.0/http/server.ts"
 
-await serve(await new Router({ root: import.meta.resolve("./.") }))
+Deno.serve(await new Router({ root: import.meta.resolve("./.") }))
 ```
 
 ## Advanced Usage
