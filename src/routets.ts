@@ -1,28 +1,92 @@
 import Router from "./Router.ts"
+import { isAbsolute, resolve } from "https://deno.land/std@0.221.0/path/mod.ts"
 import { Command } from "https://deno.land/x/cliffy@v0.25.7/command/command.ts"
 
-if (import.meta.main) {
+const marker = "\uFFFD"
+
+let importMapCwd: string | undefined = undefined
+const tryFindImportMapCwd = async (path: string) => {
+	const { importMap: importMapMaybe, imports, scopes } = JSON.parse(await Deno.readTextFile(path))
+	if (importMapMaybe) return importMapMaybe
+	else if (imports && scopes) return path
+}
+try {
+	importMapCwd = await tryFindImportMapCwd("deno.json")
+} catch (error) {
+	try {
+		importMapCwd = await tryFindImportMapCwd("deno.jsonc")
+	} catch (error) {
+		/* empty */
+	}
+}
+
+if (import.meta.main && Deno.args[0] !== marker) {
+	// Required to run in another process, because installed scripts don't support import maps out of the box.
+	const argsImportMap = importMapCwd ? ["--import-map", importMapCwd] : []
+	const command = new Deno.Command(Deno.execPath(), {
+		args: ["run", "-A", ...argsImportMap, import.meta.url, marker, ...Deno.args],
+		...{ stdin: "piped", stdout: "piped", stderr: "piped" },
+	})
+	const process = command.spawn()
+	Deno.stdin.readable.pipeTo(process.stdin)
+	process.stdout.pipeTo(Deno.stdout.writable)
+	process.stderr.pipeTo(Deno.stderr.writable)
+	Deno.exit((await process.status).code)
+} else {
+	const [first, ...rest] = Deno.args
+	const argsRaw = first === marker ? rest : Deno.args
 	try {
 		const { args, options } = await new Command()
 			.name("routets")
 			.usage("[root] [options]")
 			.description(
-				"A simple interface to use `routets` from command line. It searches routes for `<root>/**/*.<suffix>.{ts,tsx}`. When running without specifying `root`, the current working directory is implied. Further documentation can be found at <https://github.com/yuhr/routets>.",
+				"A simple interface to use `routets` from command line. It searches routes for `<root>/**/*.<suffix>.{ts,tsx}`. When running without specifying `root`, the current working directory is implied.\n\nFurther documentation can be found at <https://github.com/yuhr/routets>.",
 			)
 			.arguments("[root:string]")
 			.option("--suffix <string>", "Specifies the route filename suffix.", { default: "route" })
-			.option("--no-write", "Disables generating `serve.gen.ts` but just serve your routes.")
-			.option("--no-watch", "Disables watching file changes and reloading routes.")
-			.option("--no-serve", "Generates `serve.gen.ts` but exits immediately.")
-			.parse(Deno.args)
+			.option(
+				"--watch [paths...:string]",
+				"Enables watching for file changes and reloading routes. Without paths, the same directory as `root` is implied.",
+				{ default: true },
+			)
+			.option("--no-watch", "Disables watching.")
+			.option("--write", "Generates `serve.gen.ts`.", { default: true })
+			.option("--no-write", "Disables generating `serve.gen.ts`.")
+			.option(
+				"--serve",
+				"Enables serving routes. Disable when you only want to generate `serve.gen.ts`.",
+				{ default: true },
+			)
+			.option("--no-serve", "Disables serving.")
+			.option(
+				"--import-map <string>",
+				"Specifies a path to the import map JSON file to use while watching. If not specified, Deno's manifest file in the working directory is respected.",
+			)
+			.helpOption("--help", "Shows this help.", { prepend: false })
+			.parse(argsRaw)
 
-		const [root, ...rest] = args
+		const cwd = Deno.cwd()
+		const [rootRaw = cwd, ...rest] = args
 		if (rest.length) throw new Error(`Unexpected arguments: ${rest.join(" ")}`)
+		const { suffix, write, watch: watchRaw, serve, importMap: importMapRaw } = options
 
-		const { suffix, write, watch } = options
+		const toAbsolute = (path: string) => (isAbsolute(path) ? path : resolve(cwd, path))
 
-		if (options.serve) {
-			Deno.serve(await new Router({ root, suffix, write, watch }))
+		const root = toAbsolute(rootRaw)
+		const importMap =
+			(importMapRaw && toAbsolute(importMapRaw)) || (importMapCwd && toAbsolute(importMapCwd))
+		const watch = (watchRaw === true ? [root] : watchRaw === false ? [] : watchRaw).map(toAbsolute)
+
+		if (serve) {
+			const router = new Router({ root, suffix, write, watch, importMap })
+			Deno.serve(router)
+			for await (const urls of router.watch) {
+				console.log(urls)
+			}
+		} else if (watch.length) {
+			for await (const urls of new Router({ root, suffix, write, watch, importMap }).watch) {
+				/* empty */
+			}
 		} else if (write) {
 			await Router.write({ root, suffix })
 		}

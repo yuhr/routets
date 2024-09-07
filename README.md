@@ -8,7 +8,7 @@ Vanilla filesystem-based routing for Deno.
 
 <br><br></div>
 
-`routets` is a [`Handler`](https://deno.land/std@0.192.0/http/server.ts?s=Handler) generator that performs filesystem-based routing.
+`routets` is a [`Deno.ServeHandler`](https://docs.deno.com/api/deno/~/Deno.ServeHandler) generator that performs filesystem-based routing.
 
 No other stuff. That's all. I was always tired of fullstack frameworks such as Fresh or Aleph.js, because of the tightly coupled design that forces users to be on the rails. So I ended up making this stupid-simple solution, which is aimed to be:
 
@@ -19,6 +19,8 @@ No other stuff. That's all. I was always tired of fullstack frameworks such as F
 - No lock-in to a specific architecture; MPA or SPA, SSR or CSR, etc.
 
 So, `routets` is deliberately less-featured. It just provides a basic building block for writing web servers in Deno, leveraging Create Your Own™ style of experience.
+
+Notably, we use a suffix for route filenames like `*.route.ts`. This allows you to place related modules like `*.test.ts` aside of routes.
 
 ## Basic Usage
 
@@ -47,7 +49,7 @@ Alternatively, of course you can create your own script:
 ```typescript
 import Router from "https://lib.deno.dev/x/routets@v2/Router.ts"
 
-Deno.serve(await new Router({ root: import.meta.resolve("./.") }))
+await Deno.serve(new Router()).finished
 ```
 
 ## Advanced Usage
@@ -56,13 +58,13 @@ Deno.serve(await new Router({ root: import.meta.resolve("./.") }))
 
 `routets` supports dynamic routes by [URL Pattern API](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API). Please refer to the MDN documentation for the syntax and examples.
 
-Matched parts of the pathname will be passed to the second argument of the handler. For example, when you have `:dynamic.route.ts` with the content being:
+Captured parts of the pathname will be available in the first parameter of the handler. For example, when you have `:dynamic.route.ts` with the content being:
 
 ```typescript
 import Route from "https://lib.deno.dev/x/routets@v2/Route.ts"
 
-export default new Route(async ({ slugs }) => {
-	return new Response(JSON.stringify(slugs), { headers: { "Content-Type": "application/json" } })
+export default new Route(async ({ captured }) => {
+	return new Response(JSON.stringify(captured), { headers: { "Content-Type": "application/json" } })
 })
 ```
 
@@ -101,7 +103,7 @@ To exercise this, here we add support for returning a React element from handler
 ```typescript
 import Route from "https://lib.deno.dev/x/routets@v2/Route.ts"
 import { renderToReadableStream } from "https://esm.sh/react-dom@18.2.0/server"
-import { isValidElement, ReactElement, Suspense } from "https://esm.sh/react@18.2.0"
+import { type ReactElement, Suspense } from "https://esm.sh/react@18.2.0"
 
 class RouteReact extends Route {
 	constructor(handler: Route.Handler<ReactElement<unknown>>) {
@@ -124,7 +126,7 @@ class RouteReact extends Route {
 export default RouteReact
 ```
 
-And don't forget to add following options to your `deno.jsonc`:
+And don't forget to add following options to your `deno.json`:
 
 ```jsonc
 {
@@ -135,7 +137,7 @@ And don't forget to add following options to your `deno.jsonc`:
 }
 ```
 
-That's it! You can now create a route with it:
+That's it! You can now create a route using it, e.g. with the filename being `.route.tsx`:
 
 ```typescript
 import RouteReact from "./RouteReact.ts"
@@ -156,9 +158,9 @@ export default new RouteReact(async () => {
 })
 ```
 
-In a browser, this will show you “Loading…” for 3 seconds, and then “Hello, World!”.
+In a browser, accessing [`http://localhost:8000`](http://localhost:8000) will show you “Loading…” for 3 seconds, and then “Hello, World!”.
 
-### Suffix Restrictions
+### Changing Suffix
 
 Changing the route filename suffix (`route` by default) is possible by `--suffix` when using the CLI and by `suffix` option when using the `Router` constructor. Although, there are some restrictions on the shape of suffixes:
 
@@ -183,7 +185,3 @@ There exists a similar package [`fsrouter`](https://deno.land/x/fsrouter) which 
 - Suffix namespacing. `routets` uses namespaced filenames e.g. `greet.route.ts`, while `fsrouter` is just `greet.ts`.
 - Dynamic routing syntax. `routets` uses [URL Pattern API](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API) e.g. `:id.route.ts`, while `fsrouter` uses the [bracket syntax](https://github.com/justinawrey/fsrouter#dynamic-routes) e.g. `[id].ts`. Also, `routets` doesn't support [typed dynamic routes](https://github.com/justinawrey/fsrouter#typed-dynamic-routes).
 - JavaScript file extensions. `routets` doesn't allow `js` or `jsx`, while `fsrouter` does.
-
-## Semver Policy
-
-Only the default exports are public APIs and remain stable throughout minor version bumps. Named exports should be considered private and unstable. Any single release may randomly contain breaking changes to named exports, so users should avoid using them where possible.

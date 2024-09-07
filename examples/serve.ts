@@ -1,5 +1,3 @@
 import Router from "../src/Router.ts"
 
-Deno.serve(
-	await new Router({ root: import.meta.resolve("./."), watch: event => console.log("updated") }),
-)
+await Deno.serve(new Router({ watch: true, write: true })).finished
