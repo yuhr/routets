@@ -47,21 +47,22 @@ if (import.meta.main && Deno.args[0] !== marker) {
 				"A simple interface to use `routets` from command line. It searches routes for `<root>/**/*.<suffix>.{ts,tsx}`. When running without specifying `root`, the current working directory is implied.\n\nFurther documentation can be found at <https://github.com/yuhr/routets>.",
 			)
 			.arguments("[root:string]")
-			.option("--suffix <string>", "Specifies the route filename suffix.", { default: "route" })
 			.option(
-				"--watch [paths...:string]",
+				"--suffix <string>",
+				"Specifies the route filename suffix. It cannot be empty, cannot contain slashes, cannot start or end with dots.",
+				{ default: "route" },
+			)
+			.option(
+				"--watch [...paths:string]",
 				"Enables watching for file changes and reloading routes. Without paths, the same directory as `root` is implied.",
 				{ default: true },
 			)
 			.option("--no-watch", "Disables watching.")
-			.option("--write", "Generates `serve.gen.ts`.", { default: true })
 			.option("--no-write", "Disables generating `serve.gen.ts`.")
 			.option(
-				"--serve",
-				"Enables serving routes. Disable when you only want to generate `serve.gen.ts`.",
-				{ default: true },
+				"--no-serve",
+				"Disables serving. Useful when you only want to generate `serve.gen.ts`.",
 			)
-			.option("--no-serve", "Disables serving.")
 			.option(
 				"--import-map <string>",
 				"Specifies a path to the import map JSON file to use while watching. If not specified, Deno's manifest file in the working directory is respected.",
