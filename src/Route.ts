@@ -41,6 +41,6 @@ class Route {
 	}
 }
 
-const symbol = Symbol()
+const symbol = Symbol.for("routets/Route")
 
 export default Route
