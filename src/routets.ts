@@ -84,10 +84,11 @@ if (import.meta.main && Deno.args[0] !== marker) {
 			const router = new Router({ root, suffix, write, watch, importMap })
 			Deno.serve(router)
 			for await (const urls of router.watch) {
-				console.log(urls)
+				/* empty */
 			}
 		} else if (watch.length) {
-			for await (const urls of new Router({ root, suffix, write, watch, importMap }).watch) {
+			const router = new Router({ root, suffix, write, watch, importMap })
+			for await (const urls of router.watch) {
 				/* empty */
 			}
 		} else if (write) {
