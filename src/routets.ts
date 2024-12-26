@@ -67,7 +67,7 @@ if (import.meta.main && Deno.args[0] !== marker) {
 				"--import-map <string>",
 				"Specifies a path to the import map JSON file to use while watching. If not specified, Deno's manifest file in the working directory is respected.",
 			)
-			.option("--hostname <hostname:string>", "Specifies the port to serve at.", {
+			.option("--hostname <hostname:string>", "Specifies the hostname to serve at.", {
 				default: "0.0.0.0",
 			})
 			.option(
