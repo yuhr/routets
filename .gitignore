@@ -1,6 +1,7 @@
 .*
 *.log
 node_modules
+*.gen.ts
 
 !.git*
 !.*rc
