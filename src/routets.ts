@@ -95,5 +95,6 @@ if (import.meta.main && Deno.args[0] !== marker) {
 		}
 	} catch (error) {
 		console.error(error)
+		Deno.exit(1)
 	}
 }
