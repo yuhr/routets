@@ -98,7 +98,7 @@ const compareByCodepoints = (a: string, b: string) => {
 }
 
 class URLPatternPretty extends URLPattern {
-	[Symbol.for("Deno.customInspect")]() {
+	[Symbol.for("Deno.customInspect")](): string {
 		return this.pathname
 	}
 }
