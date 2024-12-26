@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: CC0-1.0
+
 import RouteReact from "./RouteReact.tsx"
 import { delay } from "https://deno.land/std@0.192.0/async/delay.ts"
 

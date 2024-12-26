@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 import Route from "./Route.ts"
 import { relative, isAbsolute, toFileUrl, join } from "https://deno.land/std@0.221.0/path/mod.ts"
 import {
