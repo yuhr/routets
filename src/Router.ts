@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import Route from "./Route.ts"
-import { relative, isAbsolute, toFileUrl, join } from "https://deno.land/std@0.221.0/path/mod.ts"
 import {
 	callsites,
 	type CallSite,
 } from "https://deno.land/x/callsites@0.0.1/modules/callsites/mod.ts"
 import Distree from "https://deno.land/x/distree@v2.0.0/index.ts"
+import { isAbsolute } from "https://jsr.io/@std/path/1.0.8/is_absolute.ts"
+import { join } from "https://jsr.io/@std/path/1.0.8/join.ts"
+import { relative } from "https://jsr.io/@std/path/1.0.8/relative.ts"
+import { toFileUrl } from "https://jsr.io/@std/path/1.0.8/to_file_url.ts"
 
 const getCallSite = () => callsites()[2]!
 
@@ -283,13 +286,11 @@ class Router {
 	#eventTarget: EventTarget | undefined
 	async #watch(urls: [URL, ...URL[]], optionsNormalized: OptionsNormalized) {
 		const { root, write } = optionsNormalized
-		const { createGraph } = await import("jsr:@deno/graph@^0.69.10")
-		const { createCache } = await import("jsr:@deno/cache-dir@^0.8.0")
+		const { createGraph } = await import("https://jsr.io/@deno/graph/0.82.1/mod.ts")
+		const { createCache } = await import("https://jsr.io/@deno/cache-dir/0.11.1/mod.ts")
 		const { resolve, parse } = await import("https://esm.sh/v135/@import-maps/resolve@2.0.0")
-		const { pick } = await import("https://deno.land/std@0.221.0/collections/pick.ts")
-		const { filterValues } = await import(
-			"https://deno.land/std@0.221.0/collections/filter_values.ts"
-		)
+		const { pick } = await import("https://jsr.io/@std/collections/1.0.5/pick.ts")
+		const { filterValues } = await import("https://jsr.io/@std/collections/1.0.5/filter_values.ts")
 		const importMap = optionsNormalized.importMap
 			? parse(
 					filterValues(
