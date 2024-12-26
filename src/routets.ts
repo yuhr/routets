@@ -113,11 +113,17 @@ if (import.meta.main && Deno.args[0] !== marker) {
 				/* empty */
 			}
 		} else if (watch.length) {
-			const router = new Router({ root, suffix, write, watch, importMap })
-			for await (const urls of router.watch) {
-				/* empty */
+			if (write) {
+				console.log("Running with `--no-serve`; only watching and generating the manifest file.")
+				const router = new Router({ root, suffix, write, watch, importMap })
+				for await (const urls of router.watch) {
+					/* empty */
+				}
+			} else {
+				throw new Error("Running with `--no-serve` and `--no-write` does nothing; maybe mistake?")
 			}
 		} else if (write) {
+			console.log("Running with `--no-serve` and `--no-watch`; only generating the manifest file.")
 			await Router.write({ root, suffix })
 		}
 	} catch (error) {
