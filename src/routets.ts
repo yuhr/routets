@@ -8,17 +8,32 @@ import { resolve } from "https://jsr.io/@std/path/1.0.8/resolve.ts"
 
 const marker = ""
 
+let configCwd: string | undefined = undefined
+const tryFindConfigCwd = async (path: string) => {
+	await Deno.stat(path)
+	return path
+}
+try {
+	configCwd = await tryFindConfigCwd("deno.jsonc")
+} catch (error) {
+	try {
+		configCwd = await tryFindConfigCwd("deno.json")
+	} catch (error) {
+		/* empty */
+	}
+}
+
 let importMapCwd: string | undefined = undefined
 const tryFindImportMapCwd = async (path: string) => {
 	const { importMap: importMapMaybe, imports, scopes } = JSON.parse(await Deno.readTextFile(path))
-	if (importMapMaybe) return importMapMaybe
+	if (typeof importMapMaybe === "string") return importMapMaybe
 	else if (imports && scopes) return path
 }
 try {
-	importMapCwd = await tryFindImportMapCwd("deno.json")
+	importMapCwd = await tryFindImportMapCwd("deno.jsonc")
 } catch (error) {
 	try {
-		importMapCwd = await tryFindImportMapCwd("deno.jsonc")
+		importMapCwd = await tryFindImportMapCwd("deno.json")
 	} catch (error) {
 		/* empty */
 	}
@@ -26,9 +41,10 @@ try {
 
 if (import.meta.main && Deno.args[0] !== marker) {
 	// Required to run in another process, because installed scripts don't support import maps out of the box.
+	const argsConfig = configCwd ? ["--config", configCwd] : []
 	const argsImportMap = importMapCwd ? ["--import-map", importMapCwd] : []
 	const command = new Deno.Command(Deno.execPath(), {
-		args: ["run", "-A", ...argsImportMap, import.meta.url, marker, ...Deno.args],
+		args: ["run", "-A", ...argsConfig, ...argsImportMap, import.meta.url, marker, ...Deno.args],
 		...{ stdin: "piped", stdout: "piped", stderr: "piped" },
 	})
 	const process = command.spawn()
