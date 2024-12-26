@@ -168,7 +168,7 @@ Changing the route filename suffix (`route` by default) is possible by `--suffix
 - Cannot contain slashes
 - Cannot start or end with dots
 
-These are by design and will never be lifted.
+These are by design and will never be lifted. `routets` is made with the principle of least surprise; suffixes are technically required to avoid ugly special-casing of route names like `index`. You must be freely able to use _any_ route name for your own purpose.
 
 ## Deploying to Deno Deploy
 
