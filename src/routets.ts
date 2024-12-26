@@ -2,10 +2,11 @@
 
 import Router from "./Router.ts"
 import { Command } from "https://deno.land/x/cliffy@v0.25.7/command/command.ts"
+import { isPortAvailable, getAvailablePort } from "https://deno.land/x/port@1.0.0/mod.ts"
 import { isAbsolute } from "https://jsr.io/@std/path/1.0.8/is_absolute.ts"
 import { resolve } from "https://jsr.io/@std/path/1.0.8/resolve.ts"
 
-const marker = "\uFFFD"
+const marker = ""
 
 let importMapCwd: string | undefined = undefined
 const tryFindImportMapCwd = async (path: string) => {
@@ -65,13 +66,28 @@ if (import.meta.main && Deno.args[0] !== marker) {
 				"--import-map <string>",
 				"Specifies a path to the import map JSON file to use while watching. If not specified, Deno's manifest file in the working directory is respected.",
 			)
+			.option("--hostname <hostname:string>", "Specifies the port to serve at.", {
+				default: "0.0.0.0",
+			})
+			.option(
+				"--port <port:number>",
+				"Specifies the port to serve at. Defaulting to the first available port between 8000–65535. When a value is given but unavailable, it simply throws.",
+			)
 			.helpOption("--help", "Shows this help.", { prepend: false })
 			.parse(argsRaw)
 
 		const cwd = Deno.cwd()
 		const [rootRaw = cwd, ...rest] = args
 		if (rest.length) throw new Error(`Unexpected arguments: ${rest.join(" ")}`)
-		const { suffix, write, watch: watchRaw, serve, importMap: importMapRaw } = options
+		const {
+			suffix,
+			write,
+			watch: watchRaw,
+			serve,
+			importMap: importMapRaw,
+			hostname,
+			port: portSpecified,
+		} = options
 
 		const toAbsolute = (path: string) => (isAbsolute(path) ? path : resolve(cwd, path))
 
@@ -81,8 +97,18 @@ if (import.meta.main && Deno.args[0] !== marker) {
 		const watch = (watchRaw === true ? [root] : watchRaw === false ? [] : watchRaw).map(toAbsolute)
 
 		if (serve) {
+			let port: number | undefined = undefined
+			if (portSpecified !== undefined) {
+				if (await isPortAvailable({ port: portSpecified })) port = portSpecified
+				else throw new Error(`The specified port \`${port}\` is unavailable.`)
+				if (port < 1024 && Deno.uid())
+					throw new Error(`The specified port \`${port}\` requires the root privileges.`)
+			} else {
+				port = await getAvailablePort({ port: { start: 8000, end: 65535 } })
+				if (port === undefined) throw new Error("No port available between 8000–65535.")
+			}
 			const router = new Router({ root, suffix, write, watch, importMap })
-			Deno.serve(router)
+			Deno.serve({ hostname, port }, router)
 			for await (const urls of router.watch) {
 				/* empty */
 			}
