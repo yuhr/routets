@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 import Router from "./Router.ts"
 import { isAbsolute, resolve } from "https://deno.land/std@0.221.0/path/mod.ts"
 import { Command } from "https://deno.land/x/cliffy@v0.25.7/command/command.ts"
