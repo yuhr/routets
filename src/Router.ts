@@ -231,6 +231,11 @@ interface Router {
 	(request: Request): Promise<Response>
 }
 
+const encodeUriPathname = (pathname: string) =>
+	pathname.split("/").map(encodeURIComponent).join("/")
+const decodeUriPathname = (pathname: string) =>
+	pathname.split("/").map(decodeURIComponent).join("/")
+
 /**
  * A [`Deno.ServeHandler`](https://docs.deno.com/api/deno/~/Deno.ServeHandler) generator that performs filesystem-based routing.
  */
@@ -343,7 +348,9 @@ class Router {
 				for (const dependent of affected) affected.push(...getDependents(dependent))
 				return [...new Set(affected)]
 			}
-			const modulePaths = [...modules.keys()].map(specifier => new URL(specifier).pathname)
+			const modulePaths = [...modules.keys()].map(specifier =>
+				decodeUriPathname(new URL(specifier).pathname),
+			)
 			try {
 				const watcher = Deno.watchFs([...urls.map(url => url.pathname), ...modulePaths])
 				for await (const event of watcher) {
