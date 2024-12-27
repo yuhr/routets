@@ -40,6 +40,8 @@ export default new Route(async () => {
 $ deno install -gAf https://deno.land/x/routets@v3.2.0/routets.ts
 $ routets # or `routets somewhere` to serve `somewhere/greet.route.ts` at `/greet`
 Listening on http://0.0.0.0:8000/
+Routes:
++ /greet
 ```
 
 And you'll see “Hello, World!” at [`http://localhost:8000/greet`](http://localhost:8000/greet).
@@ -49,7 +51,7 @@ Alternatively, of course you can create your own script:
 ```ts
 import Router from "https://deno.land/x/routets@v3.2.0/Router.ts"
 
-await Deno.serve(new Router()).finished
+await Deno.serve(new Router({ root: ".", watch: true, write: "serve.gen.ts" })).finished
 ```
 
 ## Advanced Usage
@@ -72,21 +74,24 @@ Accessing `/route` will show you `{"dynamic":"route"}`.
 
 ### Route Precedence
 
-Once you have started using dynamic routes, you may notice it is unclear which route will be matched when multiple dynamic routes are valid for the requested pathname. For example, if you have a file named `greet.route.ts` and another file named `*.route.ts`, which one will be matched when you access `/greet`?
+Once you have started using dynamic routes, you may notice it is unclear which route will be matched when multiple routes are valid for the requested pathname. For example, if you have files named `.route.ts` and `*.route.ts`, which one will be matched when you access `/`?
 
-By default, `routets` doesn't do anything smart, and just performs codepoint-wise lexicographic ordering. So, in the above example, `*.route.ts` will be matched first, as `*` precedes `g` in Unicode. If you want to change this behavior, just named-export a number as `precedence` from each route:
-
-```ts
-// in `*.route.ts`
-export const precedence = 0
-```
+By default, `routets` doesn't do anything smart, and just performs **codepoint-wise reverse-lexicographic ordering** of **pathname patterns** (not of actual file paths, which include the suffix and the extension). So, in the above example, `*.route.ts` will win, as `/*` precedes `/` reverse-lexicographically. If you want to change this behavior, just named-export a number as `precedence` from each route:
 
 ```ts
-// in `greet.route.ts`
-export const precedence = 9
+// in `.route.ts`
+export const precedence = 1
 ```
 
-Routes with greater precedences are matched first. Think of it as `z-index` in CSS. So, this time `greet.route.ts` will be matched first.
+Routes with greater precedences win. Think of it like `z-index` in CSS. So, at this time `.route.ts` will be matched first. You can always confirm the ordering by seeing the output of `routets` (routes listed earlier win):
+
+```sh
+$ routets
+Listening on http://0.0.0.0:8000/
+Routes:
++ /
++ /*
+```
 
 If `precedence` is not exported, it implies 0.
 

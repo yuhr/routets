@@ -16,5 +16,3 @@ const Component = () => {
 export default new RouteReact(async () => {
 	return <Component />
 })
-
-export const precedence = 9
