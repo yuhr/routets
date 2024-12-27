@@ -6,5 +6,3 @@ import Route from "../src/Route.ts"
 export default new Route(async () => {
 	throw undefined
 })
-
-export const precedence = 9

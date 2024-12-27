@@ -6,4 +6,4 @@ export default new Route(async () => {
 	return new Response("Empty route name example.")
 })
 
-export const precedence = 9
+export const precedence = 1

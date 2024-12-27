@@ -90,9 +90,9 @@ const compareByCodepoints = (a: string, b: string) => {
 	const chars_b = [...b]
 	const length = Math.min(chars_a.length, chars_b.length)
 	for (let i = 0; i < length; i++) {
-		const codePoint_a = chars_a[i]!.codePointAt(0)!
-		const codePoint_b = chars_b[i]!.codePointAt(0)!
-		const order = codePoint_a - codePoint_b
+		const codepoint_a = chars_a[i]!.codePointAt(0)!
+		const codepoint_b = chars_b[i]!.codePointAt(0)!
+		const order = codepoint_a - codepoint_b
 		if (order !== 0) return order
 	}
 	return chars_a.length - chars_b.length
@@ -151,7 +151,7 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 	return [...distree].sort(([, a], [, b]) => {
 		const precedence = b.precedence - a.precedence
 		if (precedence !== 0) return precedence
-		return compareByCodepoints(a.pattern.pathname, b.pattern.pathname)
+		return compareByCodepoints(b.pattern.pathname, a.pattern.pathname)
 	})
 }
 
