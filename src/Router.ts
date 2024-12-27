@@ -24,7 +24,7 @@ const toUrl = (path: string | URL, callSite: CallSite) => {
 		return new URL(path)
 	} catch (error) {
 		if (isAbsolute(path)) return toFileUrl(path)
-		else return new URL(path, callSite.getFileName()!)
+		else return new URL(path, toFileUrl(callSite.getFileName()!))
 	}
 }
 
