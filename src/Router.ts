@@ -33,7 +33,7 @@ const normalized: unique symbol = Symbol()
 type OptionsNormalized = {
 	root: URL
 	pattern: RegExp
-	write: boolean
+	write: string | false
 	watch: URL[]
 	importMap: URL | undefined
 	[normalized]: undefined
@@ -60,6 +60,7 @@ const normalizeOptions = (
 		throw new Error("Suffix cannot start or end with dots.")
 	const pattern = createRegExpFromSuffix(suffix)
 
+	if (options.write === "") throw new Error("Index module file name cannot be empty.")
 	const write = options.write ?? false
 
 	const watch =
@@ -161,7 +162,7 @@ class IdentifierPretty {
 	}
 }
 
-const emit = async (root: string, routes: Router.Routes) => {
+const emit = async (root: string, routes: Router.Routes, path: string) => {
 	const map = new Map<string, IdentifierPretty>()
 	let content = routes
 		.map(([path, route], i) => {
@@ -174,7 +175,7 @@ const emit = async (root: string, routes: Router.Routes) => {
 	content += `\nimport Router from "${specifierRouter}"`
 	content += `\nconst routetslist = ${Deno.inspect([...map.entries()])} as const`
 	content += `\nawait Deno.serve(new Router(routetslist)).finished`
-	await Deno.writeTextFile(join(root, "serve.gen.ts"), content)
+	await Deno.writeTextFile(join(root, path), content)
 }
 
 const unexpected = (response: unknown, pathname: string) => {
@@ -203,11 +204,11 @@ namespace Router {
 		 */
 		readonly suffix?: string | undefined
 		/**
-		 * Whether to generate `serve.gen.ts`, which is necessary for deployments to environments that don't support dynamic imports, such as Deno Deploy.
+		 * Whether to generate the index module, which is necessary for deployments to environments that don't support dynamic imports, such as Deno Deploy.
 		 *
 		 * @default false
 		 */
-		readonly write?: boolean | undefined
+		readonly write?: string | false | undefined
 		/**
 		 * Where to watch for changes and update the routes automatically. If `true`, the same path as the `root` is used.
 		 *
@@ -245,18 +246,22 @@ class Router {
 	}
 
 	/**
-	 * Enumerates routes and generates `serve.gen.ts`. The resolved value can be passed to the constructor.
+	 * Enumerates routes and generates the index module. The resolved value can be passed to the constructor.
 	 */
-	static async write(options: Pick<Router.Options, "root" | "suffix"> = {}): Promise<Routetslist> {
+	static async write(
+		options: Pick<Router.Options, "root" | "suffix" | "write"> = {},
+	): Promise<Routetslist> {
 		const optionsNormalized = normalizeOptions(options, getCallSite())
+		const { root, write } = optionsNormalized
+		if (!write) throw new Error("`write` option is invalid.")
 		const routes = await Router.enumerate(options)
-		const { root } = optionsNormalized
 		await emit(
 			root.pathname,
 			routes.map(([pathname, route]) => {
 				const pattern = new URLPatternPretty({ pathname })
 				return [pathname, Object.assign(route, { pattern })]
 			}),
+			write,
 		)
 		return routes
 	}
@@ -274,7 +279,7 @@ class Router {
 	): Promise<void | never> {
 		const { root, write, watch } = optionsNormalized
 		this.#routes = await enumerate(optionsNormalized)
-		if (write) await emit(root.pathname, this.#routes)
+		if (write) await emit(root.pathname, this.#routes, write)
 		logRoutes(this.#routes)
 		if (watch.length) this.#watch(watch as [URL, ...URL[]], optionsNormalized)
 	}
@@ -344,7 +349,7 @@ class Router {
 				for await (const event of watcher) {
 					watcher.close()
 					const routes = await enumerate(optionsNormalized)
-					if (write) await emit(root.pathname, routes)
+					if (write) await emit(root.pathname, routes, write)
 					logRoutes(routes, this.#routes)
 					this.#routes = routes
 					this.#eventTarget?.dispatchEvent(

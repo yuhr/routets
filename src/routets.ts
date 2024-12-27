@@ -74,10 +74,15 @@ if (import.meta.main && Deno.args[0] !== marker) {
 				{ default: true },
 			)
 			.option("--no-watch", "Disables watching.")
-			.option("--no-write", "Disables generating `serve.gen.ts`.")
+			.option(
+				"--write [path:string]",
+				"Enables generating the index module at the specified path, relative to `root`.",
+				{ default: "serve.gen.ts" },
+			)
+			.option("--no-write", "Disables generating the index module.")
 			.option(
 				"--no-serve",
-				"Disables serving. Useful when you only want to generate `serve.gen.ts`.",
+				"Disables serving. Useful when you only want to generate the index module.",
 			)
 			.option(
 				"--import-map <string>",
@@ -98,7 +103,7 @@ if (import.meta.main && Deno.args[0] !== marker) {
 		if (rest.length) throw new Error(`Unexpected arguments: ${rest.join(" ")}`)
 		const {
 			suffix,
-			write,
+			write: writeRaw,
 			watch: watchRaw,
 			serve,
 			importMap: importMapRaw,
@@ -111,6 +116,7 @@ if (import.meta.main && Deno.args[0] !== marker) {
 		const root = toAbsolute(rootRaw)
 		const importMap =
 			(importMapRaw && toAbsolute(importMapRaw)) || (importMapCwd && toAbsolute(importMapCwd))
+		const write = writeRaw === true ? `serve.gen.ts` : writeRaw
 		const watch = (watchRaw === true ? [root] : watchRaw === false ? [] : watchRaw).map(toAbsolute)
 
 		if (serve) {
@@ -141,7 +147,7 @@ if (import.meta.main && Deno.args[0] !== marker) {
 			}
 		} else if (write) {
 			console.log("Running with `--no-serve` and `--no-watch`; only generating the manifest file.")
-			await Router.write({ root, suffix })
+			await Router.write({ root, suffix, write })
 		}
 	} catch (error) {
 		console.error(error)
