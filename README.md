@@ -27,7 +27,7 @@ Notably, we use a suffix for route filenames like `*.route.ts`. This allows you 
 Create a file with the filename being `<your-route-name>.route.ts`, say `./greet.route.ts` here and the content is like this:
 
 ```ts
-import Route from "https://deno.land/x/routets@v3.2.0/Route.ts"
+import Route from "https://deno.land/x/routets@v4.0.0/Route.ts"
 
 export default new Route(async () => {
 	return new Response("Hello, World!")
@@ -37,7 +37,7 @@ export default new Route(async () => {
 `routets` comes with a built-in CLI. During development, you can use this and serve your routes immediately:
 
 ```sh
-$ deno install -gAf https://deno.land/x/routets@v3.2.0/routets.ts
+$ deno install -gAf https://deno.land/x/routets@v4.0.0/routets.ts
 $ routets # or `routets somewhere` to serve `somewhere/greet.route.ts` at `/greet`
 Listening on http://0.0.0.0:8000/
 Routes:
@@ -49,7 +49,7 @@ And you'll see “Hello, World!” at [`http://localhost:8000/greet`](http://loc
 Alternatively, of course you can create your own script:
 
 ```ts
-import Router from "https://deno.land/x/routets@v3.2.0/Router.ts"
+import Router from "https://deno.land/x/routets@v4.0.0/Router.ts"
 
 await Deno.serve(new Router({ root: ".", watch: true, write: "serve.gen.ts" })).finished
 ```
@@ -63,7 +63,7 @@ await Deno.serve(new Router({ root: ".", watch: true, write: "serve.gen.ts" })).
 Captured parts of the pathname will be available in the first parameter of the handler. For example, when you have `:dynamic.route.ts` with the content being:
 
 ```ts
-import Route from "https://deno.land/x/routets@v3.2.0/Route.ts"
+import Route from "https://deno.land/x/routets@v4.0.0/Route.ts"
 
 export default new Route(async ({ captured }) => {
 	return new Response(JSON.stringify(captured), { headers: { "Content-Type": "application/json" } })
@@ -106,7 +106,7 @@ If you want to insert middlewares before/after an execution of handlers, you can
 To exercise this, here we add support for returning a React element from handlers!
 
 ```tsx
-import Route from "https://deno.land/x/routets@v3.2.0/Route.ts"
+import Route from "https://deno.land/x/routets@v4.0.0/Route.ts"
 import { renderToReadableStream } from "https://esm.sh/react-dom@18.2.0/server"
 import { type ReactElement, Suspense } from "https://esm.sh/react@18.2.0"
 
