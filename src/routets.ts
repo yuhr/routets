@@ -8,41 +8,81 @@ import { resolve } from "https://jsr.io/@std/path/1.0.8/resolve.ts"
 
 const marker = ""
 
-let configCwd: string | undefined = undefined
-const tryFindConfigCwd = async (path: string) => {
-	await Deno.stat(path)
-	return path
-}
-try {
-	configCwd = await tryFindConfigCwd("deno.jsonc")
-} catch (error) {
-	try {
-		configCwd = await tryFindConfigCwd("deno.json")
-	} catch (error) {
-		/* empty */
-	}
+const tryFindConfigCwd = async (pathToDenoManifest: string) => {
+	await Deno.stat(pathToDenoManifest)
+	return pathToDenoManifest
 }
 
-let importMapCwd: string | undefined = undefined
-const tryFindImportMapCwd = async (path: string) => {
-	const { importMap: importMapMaybe, imports, scopes } = JSON.parse(await Deno.readTextFile(path))
-	if (typeof importMapMaybe === "string") return importMapMaybe
-	else if (imports && scopes) return path
-}
-try {
-	importMapCwd = await tryFindImportMapCwd("deno.jsonc")
-} catch (error) {
-	try {
-		importMapCwd = await tryFindImportMapCwd("deno.json")
-	} catch (error) {
-		/* empty */
-	}
-}
+const cwd = Deno.cwd()
+const toAbsolute = (path: string) => (isAbsolute(path) ? path : resolve(cwd, path))
+
+const [first, ...rest] = Deno.args
+const argsRaw = first === marker ? rest : Deno.args
+const { args, options } = await new Command()
+	.name("routets")
+	.usage("[root] [options]")
+	.description(
+		"A simple interface to use `routets` from command line. It searches routes for `<root>/**/*.<suffix>.{ts,tsx}`. When running without specifying `root`, the current working directory is implied.\n\nFurther documentation can be found at <https://github.com/yuhr/routets>.",
+	)
+	.arguments("[root:string]")
+	.option(
+		"--suffix <string>",
+		"Specifies the route filename suffix. It cannot be empty, cannot contain slashes, cannot start or end with dots.",
+		{ default: "route" },
+	)
+	.option(
+		"--watch [...paths:string]",
+		"Enables watching for file changes and reloading routes. Without paths, the same directory as `root` is implied.",
+		{ default: true },
+	)
+	.option("--no-watch", "Disables watching.")
+	.option(
+		"--write [path:string]",
+		"Enables generating the index module at the specified path, relative to `root`.",
+		{ default: "serve.gen.ts" },
+	)
+	.option("--no-write", "Disables generating the index module.")
+	.option("--no-serve", "Disables serving. Useful when you only want to generate the index module.")
+	.option(
+		"--config <string>",
+		"Specifies a path to the Deno maifest JSON file i.e. `deno.json` or `deno.jsonc`. Defaulting to the one in the current working directory if it exists.",
+	)
+	.option(
+		"--import-map <string>",
+		"Specifies a path to the import map JSON file to use while watching. Defaulting to the one specified in the Deno manifest JSON file in the current working directory if it exists.",
+	)
+	.option("--hostname <hostname:string>", "Specifies the hostname to serve at.", {
+		default: "0.0.0.0",
+	})
+	.option(
+		"--port <port:number>",
+		"Specifies the port to serve at. Defaulting to the first available port between 8000–65535. When a value is given but unavailable, it simply throws.",
+	)
+	.helpOption("--help", "Shows this help.", { prepend: false })
+	.parse(argsRaw)
+const {
+	suffix,
+	write: writeSpecified,
+	watch: watchSpecified,
+	serve,
+	config: configSpecified,
+	importMap: importMapSpecified,
+	hostname,
+	port: portSpecified,
+} = options
+
+const config =
+	(configSpecified && toAbsolute(configSpecified)) ||
+	(await tryFindConfigCwd("deno.jsonc")
+		.catch(async () => await tryFindConfigCwd("deno.json"))
+		.then(toAbsolute)
+		.catch(() => undefined))
+const importMap = importMapSpecified && toAbsolute(importMapSpecified)
 
 if (import.meta.main && Deno.args[0] !== marker) {
-	// Required to run in another process, because installed scripts don't support import maps out of the box.
-	const argsConfig = configCwd ? ["--config", configCwd] : []
-	const argsImportMap = importMapCwd ? ["--import-map", importMapCwd] : []
+	// Required running in another process, because installed scripts don't support import maps out of the box.
+	const argsConfig = config ? ["--config", config] : []
+	const argsImportMap = importMap ? ["--import-map", importMap] : []
 	const command = new Deno.Command(Deno.execPath(), {
 		args: ["run", "-A", ...argsConfig, ...argsImportMap, import.meta.url, marker, ...Deno.args],
 		...{ stdin: "piped", stdout: "piped", stderr: "piped" },
@@ -53,71 +93,15 @@ if (import.meta.main && Deno.args[0] !== marker) {
 	process.stderr.pipeTo(Deno.stderr.writable)
 	Deno.exit((await process.status).code)
 } else {
-	const [first, ...rest] = Deno.args
-	const argsRaw = first === marker ? rest : Deno.args
 	try {
-		const { args, options } = await new Command()
-			.name("routets")
-			.usage("[root] [options]")
-			.description(
-				"A simple interface to use `routets` from command line. It searches routes for `<root>/**/*.<suffix>.{ts,tsx}`. When running without specifying `root`, the current working directory is implied.\n\nFurther documentation can be found at <https://github.com/yuhr/routets>.",
-			)
-			.arguments("[root:string]")
-			.option(
-				"--suffix <string>",
-				"Specifies the route filename suffix. It cannot be empty, cannot contain slashes, cannot start or end with dots.",
-				{ default: "route" },
-			)
-			.option(
-				"--watch [...paths:string]",
-				"Enables watching for file changes and reloading routes. Without paths, the same directory as `root` is implied.",
-				{ default: true },
-			)
-			.option("--no-watch", "Disables watching.")
-			.option(
-				"--write [path:string]",
-				"Enables generating the index module at the specified path, relative to `root`.",
-				{ default: "serve.gen.ts" },
-			)
-			.option("--no-write", "Disables generating the index module.")
-			.option(
-				"--no-serve",
-				"Disables serving. Useful when you only want to generate the index module.",
-			)
-			.option(
-				"--import-map <string>",
-				"Specifies a path to the import map JSON file to use while watching. If not specified, Deno's manifest file in the working directory is respected.",
-			)
-			.option("--hostname <hostname:string>", "Specifies the hostname to serve at.", {
-				default: "0.0.0.0",
-			})
-			.option(
-				"--port <port:number>",
-				"Specifies the port to serve at. Defaulting to the first available port between 8000–65535. When a value is given but unavailable, it simply throws.",
-			)
-			.helpOption("--help", "Shows this help.", { prepend: false })
-			.parse(argsRaw)
-
-		const cwd = Deno.cwd()
-		const [rootRaw = cwd, ...rest] = args
+		const [rootSpecified = cwd, ...rest] = args
 		if (rest.length) throw new Error(`Unexpected arguments: ${rest.join(" ")}`)
-		const {
-			suffix,
-			write: writeRaw,
-			watch: watchRaw,
-			serve,
-			importMap: importMapRaw,
-			hostname,
-			port: portSpecified,
-		} = options
 
-		const toAbsolute = (path: string) => (isAbsolute(path) ? path : resolve(cwd, path))
-
-		const root = toAbsolute(rootRaw)
-		const importMap =
-			(importMapRaw && toAbsolute(importMapRaw)) || (importMapCwd && toAbsolute(importMapCwd))
-		const write = writeRaw === true ? `serve.gen.ts` : writeRaw
-		const watch = (watchRaw === true ? [root] : watchRaw === false ? [] : watchRaw).map(toAbsolute)
+		const root = toAbsolute(rootSpecified)
+		const write = writeSpecified === true ? `serve.gen.ts` : writeSpecified
+		const watch = (
+			watchSpecified === true ? [root] : watchSpecified === false ? [] : watchSpecified
+		).map(toAbsolute)
 
 		if (serve) {
 			let port: number | undefined = undefined
