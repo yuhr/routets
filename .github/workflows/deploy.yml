@@ -30,7 +30,7 @@ jobs:
         uses: denoland/deployctl@v1
         with:
           project: "routets-examples"
-          entrypoint: "examples/serve.gen.ts"
+          entrypoint: "serve.gen.ts"
           root: "examples"
           
           
