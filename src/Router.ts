@@ -28,6 +28,12 @@ const toUrl = (path: string | URL, callSite: CallSite) => {
 	}
 }
 
+const encodeUriPathname = (pathname: string) =>
+	pathname.split("/").map(encodeURIComponent).join("/")
+
+const decodeUriPathname = (pathname: string) =>
+	pathname.split("/").map(decodeURIComponent).join("/")
+
 const normalized: unique symbol = Symbol()
 
 type OptionsNormalized = {
@@ -155,25 +161,19 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 	})
 }
 
-class IdentifierPretty {
-	constructor(public name: string) {}
-	[Symbol.for("Deno.customInspect")]() {
-		return this.name
-	}
-}
-
 const emit = async (root: string, routes: Router.Routes, path: string) => {
-	const map = new Map<string, IdentifierPretty>()
-	let content = routes
-		.map(([path, route], i) => {
-			map.set(route.pattern.pathname, new IdentifierPretty(`_${i}`))
-			return `import _${i} from "./${path}"`
-		})
-		.join("\n")
+	const routetslist = routes
+		.map(
+			([path, route]) =>
+				`[${JSON.stringify(route.pattern.pathname)}, (await import(${JSON.stringify(
+					`./${encodeUriPathname(path)}`,
+				)})).default]`,
+		)
+		.join(",\n\t")
 	const self = new URL(import.meta.url)
 	const specifierRouter = isFileUrl(self) ? `./${relative(root, self.pathname)}` : self.href
-	content += `\nimport Router from "${specifierRouter}"`
-	content += `\nconst routetslist = ${Deno.inspect([...map.entries()])} as const`
+	let content = `import Router from "${specifierRouter}"`
+	content += `\nconst routetslist = [\n\t${routetslist}\n] as const`
 	content += `\nawait Deno.serve(new Router(routetslist)).finished`
 	await Deno.writeTextFile(join(root, path), content)
 }
@@ -230,11 +230,6 @@ namespace Router {
 interface Router {
 	(request: Request): Promise<Response>
 }
-
-const encodeUriPathname = (pathname: string) =>
-	pathname.split("/").map(encodeURIComponent).join("/")
-const decodeUriPathname = (pathname: string) =>
-	pathname.split("/").map(decodeURIComponent).join("/")
 
 /**
  * A [`Deno.ServeHandler`](https://docs.deno.com/api/deno/~/Deno.ServeHandler) generator that performs filesystem-based routing.
