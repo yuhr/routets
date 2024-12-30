@@ -17,17 +17,16 @@ No other stuff. That's all. I was always tired of fullstack frameworks such as F
 - No squatted pathnames like `/index`, `/_app`, or `/_404`
 - No lock-in to a specific JSX implementation
 - No lock-in to a specific architecture; MPA or SPA, SSR or CSR, etc.
+- Use of Web standard APIs
 
 So, `routets` is deliberately less-featured. It just provides a basic building block for writing web servers in Deno, leveraging Create Your Own™ style of experience.
-
-Notably, we use a suffix for route filenames like `*.route.ts`. This allows you to place related modules like `*.test.ts` aside of routes.
 
 ## Basic Usage
 
 Create a file with the filename being `<your-route-name>.route.ts`, say `./greet.route.ts` here and the content is like this:
 
 ```ts
-import Route from "https://deno.land/x/routets@v4.0.0/Route.ts"
+import Route from "https://deno.land/x/routets/Route.ts"
 
 export default new Route(async () => {
 	return new Response("Hello, World!")
@@ -37,7 +36,7 @@ export default new Route(async () => {
 `routets` comes with a built-in CLI. During development, you can use this and serve your routes immediately:
 
 ```sh
-$ deno install -gAf https://deno.land/x/routets@v4.0.0/routets.ts
+$ deno install -gAf https://deno.land/x/routets/routets.ts
 $ routets # or `routets somewhere` to serve `somewhere/greet.route.ts` at `/greet`
 Listening on http://0.0.0.0:8000/
 Routes:
@@ -49,7 +48,7 @@ And you'll see “Hello, World!” at [`http://localhost:8000/greet`](http://loc
 Alternatively, of course you can create your own script:
 
 ```ts
-import Router from "https://deno.land/x/routets@v4.0.0/Router.ts"
+import Router from "https://deno.land/x/routets/Router.ts"
 
 await Deno.serve(new Router({ root: ".", watch: true, write: "serve.gen.ts" })).finished
 ```
@@ -63,7 +62,7 @@ await Deno.serve(new Router({ root: ".", watch: true, write: "serve.gen.ts" })).
 Captured parts of the pathname will be available in the first parameter of the handler. For example, when you have `:dynamic.route.ts` with the content being:
 
 ```ts
-import Route from "https://deno.land/x/routets@v4.0.0/Route.ts"
+import Route from "https://deno.land/x/routets/Route.ts"
 
 export default new Route(async ({ captured }) => {
 	return new Response(JSON.stringify(captured), { headers: { "Content-Type": "application/json" } })
@@ -83,6 +82,8 @@ By default, `routets` doesn't do anything smart, and just performs **codepoint-w
 export const precedence = 1
 ```
 
+If `precedence` is not exported, it implies `0`.
+
 Routes with greater precedences win. Think of it like `z-index` in CSS. So, at this time `.route.ts` will be matched first. You can always confirm the ordering by seeing the output of `routets` (routes listed earlier win):
 
 ```sh
@@ -92,8 +93,6 @@ Routes:
 + /
 + /*
 ```
-
-If `precedence` is not exported, it implies 0.
 
 ### Route Fallthrough
 
@@ -106,7 +105,7 @@ If you want to insert middlewares before/after an execution of handlers, you can
 To exercise this, here we add support for returning a React element from handlers!
 
 ```tsx
-import Route from "https://deno.land/x/routets@v4.0.0/Route.ts"
+import Route from "https://deno.land/x/routets/Route.ts"
 import { renderToReadableStream } from "https://esm.sh/react-dom@18.2.0/server"
 import { type ReactElement, Suspense } from "https://esm.sh/react@18.2.0"
 
@@ -173,18 +172,20 @@ Changing the route filename suffix (`route` by default) is possible by `--suffix
 - Cannot contain slashes
 - Cannot start or end with dots
 
-These are by design and will never be lifted. `routets` is made with the principle of least surprise; suffixes are technically required to avoid the ugly special-casing of route names like `index`. You must be freely able to use _any_ route name for your own purpose, including the empty string.
+These are by design and will never be lifted. `routets` is made with the principle of least surprise; suffixes are technically required as Deno doesn't recognize a file named `.ts` to be a TypeScript module, while you must be freely able to use _any_ route file name for your own purpose, including the empty string.
+
+Notably, use of suffix allows you to place related modules like `*.test.ts` aside of routes.
 
 ## Deploying to Deno Deploy
 
-`routets` uses dynamic imports to discover routes. This works well locally, but can be a problem if you want to get it to work with environments that don't support dynamic imports, such as [Deno Deploy](https://github.com/denoland/deploy_feedback/issues/1).
+Basically, `routets` uses non-statically-analyzeable dynamic imports to discover routes. This works well locally, but can be a problem if you want to get it to work with environments that don't support non-statically-analyzeable dynamic imports, such as [Deno Deploy](https://github.com/denoland/deploy_feedback/issues/433).
 
-For this use case, by default the `routets` CLI generates a server module `serve.gen.ts` that statically imports routes. This module can directly be used as the entrypoint for Deno Deploy. You can disable this behavior by `--no-write` option.
+For this use case, by default the `routets` CLI generates a server module `serve.gen.ts` that does only statically-analyzeable dynamic import of routes. This module can directly be used as the entrypoint for Deno Deploy. You can disable this behavior by `--no-write` option.
 
 ## Difference from `fsrouter`
 
 There exists a similar package [`fsrouter`](https://deno.land/x/fsrouter) which has quite the same UX overall, but slightly different in:
 
-- Suffix namespacing. `routets` uses namespaced filenames e.g. `greet.route.ts`, while `fsrouter` is just `greet.ts`. Most notably, Deno doesn't recognize a file named `.ts` to be a TypeScript module, so the absence of suffix necessitates the `index` special-casing. `routets` simply allows the empty route name i.e. `.route.ts`.
+- Suffix namespacing. `routets` uses namespaced filenames e.g. `greet.route.ts`, while `fsrouter` is just `greet.ts`.
 - Dynamic routing syntax. `routets` uses [URL Pattern API](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API) e.g. `:id.route.ts`, while `fsrouter` uses the [bracket syntax](https://github.com/justinawrey/fsrouter#dynamic-routes) e.g. `[id].ts`. Also, `routets` doesn't support [typed dynamic routes](https://github.com/justinawrey/fsrouter#typed-dynamic-routes).
 - JavaScript file extensions. `routets` doesn't allow `js` or `jsx`, while `fsrouter` does.
