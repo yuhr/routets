@@ -239,10 +239,9 @@ class Router {
 	/**
 	 * Enumerates routes. The resolved value can be passed to the constructor.
 	 */
-	static async enumerate(options: Router.Options = {}): Promise<Routetslist> {
+	static async enumerate(options: Router.Options = {}): Promise<Router.Routes> {
 		const optionsNormalized = normalizeOptions(options, getCallSite())
-		const routes = await enumerate(optionsNormalized)
-		return routes
+		return await enumerate(optionsNormalized)
 	}
 
 	/**
@@ -250,19 +249,12 @@ class Router {
 	 */
 	static async write(
 		options: Pick<Router.Options, "root" | "suffix" | "write"> = {},
-	): Promise<Routetslist> {
+	): Promise<Router.Routes> {
 		const optionsNormalized = normalizeOptions(options, getCallSite())
 		const { root, write } = optionsNormalized
 		if (!write) throw new Error("`write` option is invalid.")
 		const routes = await Router.enumerate(options)
-		await emit(
-			root.pathname,
-			routes.map(([pathname, route]) => {
-				const pattern = new URLPatternPretty({ pathname })
-				return [pathname, Object.assign(route, { pattern })]
-			}),
-			write,
-		)
+		await emit(root.pathname, routes, write)
 		return routes
 	}
 
