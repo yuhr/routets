@@ -241,8 +241,7 @@ class Router {
 	 */
 	static async enumerate(options: Router.Options = {}): Promise<Router.Routes> {
 		const optionsNormalized = normalizeOptions(options, getCallSite())
-		const routes = await enumerate(optionsNormalized)
-		return routes
+		return await enumerate(optionsNormalized)
 	}
 
 	/**
