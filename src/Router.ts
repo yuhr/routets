@@ -255,14 +255,7 @@ class Router {
 		const { root, write } = optionsNormalized
 		if (!write) throw new Error("`write` option is invalid.")
 		const routes = await Router.enumerate(options)
-		await emit(
-			root.pathname,
-			routes.map(([pathname, route]) => {
-				const pattern = new URLPatternPretty({ pathname })
-				return [pathname, Object.assign(route, { pattern })]
-			}),
-			write,
-		)
+		await emit(root.pathname, routes as Router.Routes, write)
 		return routes
 	}
 
