@@ -18,13 +18,13 @@ const isFileUrl = (url: string | URL) => {
 	else return url.startsWith("file://")
 }
 
-const toUrl = (path: string | URL, callSite: CallSite) => {
+const toUrl = (path: string | URL, callSite: CallSite): URL => {
 	if (path instanceof URL) return path
 	try {
 		return new URL(path)
 	} catch (error) {
 		if (isAbsolute(path)) return toFileUrl(path)
-		else return new URL(path, toFileUrl(callSite.getFileName()!))
+		else return new URL(path, toUrl(callSite.getFileName()!, callSite))
 	}
 }
 
@@ -252,8 +252,8 @@ class Router {
 	): Promise<Router.Routes> {
 		const optionsNormalized = normalizeOptions(options, getCallSite())
 		const { root, write } = optionsNormalized
-		if (!write) throw new Error("`write` option is invalid.")
-		const routes = await Router.enumerate(options)
+		if (!write) throw new Error("`write` option cannot be falsy here.")
+		const routes = await enumerate(optionsNormalized)
 		await emit(root.pathname, routes, write)
 		return routes
 	}
