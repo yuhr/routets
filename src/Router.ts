@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-// TODO: import dynamically
 import Route from "./Route.ts"
 import {
 	callsites,
 	type CallSite,
 } from "https://deno.land/x/callsites@0.0.1/modules/callsites/mod.ts"
-import Distree from "https://deno.land/x/distree@v3.0.2/index.ts"
 import { isAbsolute } from "https://esm.sh/jsr/@std/path@1.0.9/is_absolute.ts"
-import { join } from "https://esm.sh/jsr/@std/path@1.0.9/join.ts"
-import { relative } from "https://esm.sh/jsr/@std/path@1.0.9/relative.ts"
 import { toFileUrl } from "https://esm.sh/jsr/@std/path@1.0.9/to_file_url.ts"
 
 const getCallSite = () => callsites()[2]!
@@ -59,6 +55,7 @@ const normalizeOptions = (
 	if (options.root === "") throw new Error("Specify a directory to find routes.")
 	const root = toUrl(options.root ?? ".", callSite)
 	if (!isFileUrl(root)) throw new Error("Only local paths or file URLs are supported.")
+	if (!root.pathname.endsWith("/")) root.pathname += "/"
 
 	if (options.suffix === "") throw new Error("Suffix cannot be empty.")
 	const suffix = options.suffix ?? "route"
@@ -140,7 +137,9 @@ const isRoutetslist = (value: unknown): value is Routetslist =>
 
 const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.Routes> => {
 	const timestamp = Date.now()
-	const distree = await Distree.fromDirectory(root, {
+	const distree = await (
+		await import("https://deno.land/x/distree@v3.0.2/fromDirectory.ts")
+	).default(root, {
 		transformer: async (url, path) => {
 			const pathname = `/${path}`.match(pattern)?.groups?.pattern
 			if (pathname) {
@@ -163,7 +162,7 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 	})
 }
 
-const emit = async (root: string, routes: Router.Routes, path: string) => {
+const emit = async (root: URL, routes: Router.Routes, path: string) => {
 	const routetslist = routes
 		.map(
 			([path, route]) =>
@@ -173,11 +172,16 @@ const emit = async (root: string, routes: Router.Routes, path: string) => {
 		)
 		.join(",\n\t")
 	const self = new URL(import.meta.url)
-	const specifierRouter = isFileUrl(self) ? `./${relative(root, self.pathname)}` : self.href
+	const specifierRouter = isFileUrl(self)
+		? `./${(await import("https://esm.sh/jsr/@std/path@1.0.9/relative.ts")).relative(
+				root.pathname,
+				self.pathname,
+			)}`
+		: self.href
 	let content = `import Router from "${specifierRouter}"`
 	content += `\nconst routetslist = [\n\t${routetslist}\n] as const`
 	content += `\nawait Deno.serve(new Router(routetslist)).finished`
-	await Deno.writeTextFile(join(root, path), content)
+	await Deno.writeTextFile(new URL(path, root), content)
 }
 
 const unexpected = (response: unknown, pathname: string) => {
@@ -256,7 +260,7 @@ class Router {
 		const { root, write } = optionsNormalized
 		if (!write) throw new Error("`write` option cannot be falsy here.")
 		const routes = await enumerate(optionsNormalized)
-		await emit(root.pathname, routes, write)
+		await emit(root, routes, write)
 		return routes
 	}
 
@@ -273,7 +277,7 @@ class Router {
 	): Promise<void | never> {
 		const { root, write, watch } = optionsNormalized
 		this.#routes = await enumerate(optionsNormalized)
-		if (write) await emit(root.pathname, this.#routes, write)
+		if (write) await emit(root, this.#routes, write)
 		logRoutes(this.#routes)
 		if (watch.length) this.#watch(watch as [URL, ...URL[]], optionsNormalized)
 	}
@@ -288,6 +292,7 @@ class Router {
 		const { createGraph } = await import("https://esm.sh/jsr/@deno/graph@0.90.0/mod.ts")
 		const { createCache } = await import("https://esm.sh/jsr/@deno/cache-dir@0.20.0/mod.ts")
 		const { resolve, parse } = await import("https://esm.sh/@import-maps/resolve@2.0.0")
+		const { join } = await import("https://esm.sh/jsr/@std/path@1.0.9/join.ts")
 		const { pick } = await import("https://esm.sh/jsr/@std/collections@1.0.11/pick.ts")
 		const { filterValues } = await import(
 			"https://esm.sh/jsr/@std/collections@1.0.11/filter_values.ts"
@@ -347,7 +352,7 @@ class Router {
 				for await (const event of watcher) {
 					watcher.close()
 					const routes = await enumerate(optionsNormalized)
-					if (write) await emit(root.pathname, routes, write)
+					if (write) await emit(root, routes, write)
 					logRoutes(routes, this.#routes)
 					this.#routes = routes
 					this.#eventTarget?.dispatchEvent(
