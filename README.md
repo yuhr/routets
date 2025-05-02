@@ -106,8 +106,8 @@ To exercise this, here we add support for returning a React element from handler
 
 ```tsx
 import Route from "https://deno.land/x/routets/Route.ts"
-import { renderToReadableStream } from "https://esm.sh/react-dom@18.2.0/server"
-import { type ReactElement, Suspense } from "https://esm.sh/react@18.2.0"
+import { renderToReadableStream } from "https://esm.sh/react-dom@19.1.0/server"
+import { type ReactElement, Suspense } from "https://esm.sh/react@19.1.0"
 
 class RouteReact extends Route {
 	constructor(handler: Route.Handler<ReactElement<unknown>>) {
@@ -145,7 +145,7 @@ That's it! You can now create a route using it, e.g. with the filename being `.r
 
 ```tsx
 import RouteReact from "./RouteReact.ts"
-import { delay } from "https://jsr.io/@std/async/1.0.9/delay.ts"
+import { delay } from "https://esm.sh/jsr/@std/async@1.0.12/delay.ts"
 
 let done = false
 const Component = () => {

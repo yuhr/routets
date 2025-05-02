@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
+// TODO: import dynamically
 import Route from "./Route.ts"
 import {
 	callsites,
 	type CallSite,
 } from "https://deno.land/x/callsites@0.0.1/modules/callsites/mod.ts"
-import Distree from "https://deno.land/x/distree@v2.0.0/index.ts"
-import { isAbsolute } from "https://jsr.io/@std/path/1.0.8/is_absolute.ts"
-import { join } from "https://jsr.io/@std/path/1.0.8/join.ts"
-import { relative } from "https://jsr.io/@std/path/1.0.8/relative.ts"
-import { toFileUrl } from "https://jsr.io/@std/path/1.0.8/to_file_url.ts"
+import Distree from "https://deno.land/x/distree@v3.0.2/index.ts"
+import { isAbsolute } from "https://esm.sh/jsr/@std/path@1.0.9/is_absolute.ts"
+import { join } from "https://esm.sh/jsr/@std/path@1.0.9/join.ts"
+import { relative } from "https://esm.sh/jsr/@std/path@1.0.9/relative.ts"
+import { toFileUrl } from "https://esm.sh/jsr/@std/path@1.0.9/to_file_url.ts"
 
 const getCallSite = () => callsites()[2]!
 
@@ -139,20 +140,21 @@ const isRoutetslist = (value: unknown): value is Routetslist =>
 
 const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.Routes> => {
 	const timestamp = Date.now()
-	const rootReal = await Deno.realPath(root)
-	const distree = await Distree.fromDirectory(rootReal, async path => {
-		const pathname = `/${relative(rootReal, path)}`.match(pattern)?.groups?.pattern
-		if (pathname) {
-			const specifier = toFileUrl(path).href + "?timestamp=" + timestamp
-			const { default: route, precedence = 0 } = await import(specifier)
-			if (typeof precedence !== "number") throw new Error("Precedence must be a number.")
-			if (Number.isNaN(precedence)) throw new Error("`NaN` is not a valid precedence.")
-			if (Route.isRoute(route)) {
-				const pattern = new URLPatternPretty({ pathname })
-				return Object.assign(route, { pattern, precedence })
+	const distree = await Distree.fromDirectory(root, {
+		transformer: async (url, path) => {
+			const pathname = `/${path}`.match(pattern)?.groups?.pattern
+			if (pathname) {
+				const specifier = url.href + "?timestamp=" + timestamp
+				const { default: route, precedence = 0 } = await import(specifier)
+				if (typeof precedence !== "number") throw new Error("Precedence must be a number.")
+				if (Number.isNaN(precedence)) throw new Error("`NaN` is not a valid precedence.")
+				if (Route.isRoute(route)) {
+					const pattern = new URLPatternPretty({ pathname })
+					return Object.assign(route, { pattern, precedence })
+				}
 			}
-		}
-		throw undefined
+			throw undefined
+		},
 	})
 	return [...distree].sort(([, a], [, b]) => {
 		const precedence = b.precedence - a.precedence
@@ -283,11 +285,13 @@ class Router {
 	#eventTarget: EventTarget | undefined
 	async #watch(urls: [URL, ...URL[]], optionsNormalized: OptionsNormalized) {
 		const { root, write } = optionsNormalized
-		const { createGraph } = await import("https://jsr.io/@deno/graph/0.82.1/mod.ts")
-		const { createCache } = await import("https://jsr.io/@deno/cache-dir/0.11.1/mod.ts")
-		const { resolve, parse } = await import("https://esm.sh/v135/@import-maps/resolve@2.0.0")
-		const { pick } = await import("https://jsr.io/@std/collections/1.0.5/pick.ts")
-		const { filterValues } = await import("https://jsr.io/@std/collections/1.0.5/filter_values.ts")
+		const { createGraph } = await import("https://esm.sh/jsr/@deno/graph@0.90.0/mod.ts")
+		const { createCache } = await import("https://esm.sh/jsr/@deno/cache-dir@0.20.0/mod.ts")
+		const { resolve, parse } = await import("https://esm.sh/@import-maps/resolve@2.0.0")
+		const { pick } = await import("https://esm.sh/jsr/@std/collections@1.0.11/pick.ts")
+		const { filterValues } = await import(
+			"https://esm.sh/jsr/@std/collections@1.0.11/filter_values.ts"
+		)
 		const importMap = optionsNormalized.importMap
 			? parse(
 					filterValues(

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC0-1.0
 
 import RouteReact from "./RouteReact.tsx"
-import { delay } from "https://jsr.io/@std/async/1.0.9/delay.ts"
+import { delay } from "https://jsr.io/@std/async/1.0.12/delay.ts"
 
 let done = false
 const Component = () => {
