@@ -102,16 +102,10 @@ const compareByCodepoints = (a: string, b: string) => {
 	return chars_a.length - chars_b.length
 }
 
-class URLPatternPretty extends URLPattern {
-	[Symbol.for("Deno.customInspect")](): string {
-		return this.pathname
-	}
-}
-
 const logRoutes = (updated: Router.Routes, stale?: Router.Routes) => {
 	if (stale) {
-		const setUpdated = new Set(updated.map(([, route]) => Deno.inspect(route.pattern)))
-		const setStale = new Set(stale.map(([, route]) => Deno.inspect(route.pattern)))
+		const setUpdated = new Set(updated.map(([, route]) => route.pattern.pathname))
+		const setStale = new Set(stale.map(([, route]) => route.pattern.pathname))
 		const added = [...setUpdated.difference(setStale)]
 		const removed = [...setStale.difference(setUpdated)]
 		if (0 < added.length + removed.length) console.info("Routes diff:")
@@ -119,7 +113,7 @@ const logRoutes = (updated: Router.Routes, stale?: Router.Routes) => {
 		if (0 < removed.length) console.info(removed.map(pattern => "- " + pattern).join("\n"))
 	} else {
 		console.info("Routes:")
-		console.info(updated.map(([, route]) => `+ ${Deno.inspect(route.pattern)}`).join("\n"))
+		console.info(updated.map(([, route]) => `+ ${route.pattern.pathname}`).join("\n"))
 	}
 }
 
@@ -148,7 +142,7 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 				if (typeof precedence !== "number") throw new Error("Precedence must be a number.")
 				if (Number.isNaN(precedence)) throw new Error("`NaN` is not a valid precedence.")
 				if (Route.isRoute(route)) {
-					const pattern = new URLPatternPretty({ pathname })
+					const pattern = new URLPattern({ pathname })
 					return Object.assign(route, { pattern, precedence })
 				}
 			}
@@ -229,7 +223,7 @@ namespace Router {
 		readonly importMap?: string | URL | undefined
 	}
 
-	export type Routes = readonly (readonly [string, Route & { pattern: URLPatternPretty }])[]
+	export type Routes = readonly (readonly [string, Route & { pattern: URLPattern }])[]
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
@@ -267,7 +261,7 @@ class Router {
 	#routes: Router.Routes = []
 	async #populateWithRoutetslist(routetslist: Routetslist): Promise<void | never> {
 		this.#routes = routetslist.map(([pathname, route]) => {
-			const pattern = new URLPatternPretty({ pathname })
+			const pattern = new URLPattern({ pathname })
 			return [pathname, Object.assign(route, { pattern })]
 		})
 		logRoutes(this.#routes)
