@@ -3,8 +3,8 @@
 import Router from "./Router.ts"
 import { Command } from "https://deno.land/x/cliffy@v0.25.7/command/command.ts"
 import { isPortAvailable, getAvailablePort } from "https://deno.land/x/port@1.0.0/mod.ts"
-import { isAbsolute } from "https://jsr.io/@std/path/1.0.8/is_absolute.ts"
-import { resolve } from "https://jsr.io/@std/path/1.0.8/resolve.ts"
+import { isAbsolute } from "https://esm.sh/jsr/@std/path@1.0.9/is_absolute.ts"
+import { resolve } from "https://esm.sh/jsr/@std/path@1.0.9/resolve.ts"
 
 const marker = ""
 

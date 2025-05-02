@@ -1,18 +1,19 @@
 {
 	"private": true,
 	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^7.5.0",
-		"@typescript-eslint/parser": "^7.5.0",
-		"eclint": "^2.8.1",
-		"eslint": "^8.57.0",
-		"eslint-config-prettier": "^9.1.0",
-		"eslint-plugin-consistent-default-export-name": "^0.0.15",
-		"eslint-plugin-import": "^2.29.1",
-		"eslint-plugin-prefer-arrow-functions": "^3.3.2",
-		"eslint-plugin-unused-imports": "^3.1.0",
-		"lint-staged": "^15.2.2",
-		"prettier": "npm:@yuhr/prettier@^3.1.1",
-		"typescript": "^5.4.4"
+		"@typescript-eslint/eslint-plugin": "8.19.0",
+		"@typescript-eslint/parser": "8.19.0",
+		"eclint": "2.8.1",
+		"eslint": "8.57.0",
+		"eslint-config-prettier": "9.1.0",
+		"eslint-plugin-consistent-default-export-name": "0.0.15",
+		"eslint-plugin-import": "2.31.0",
+		"eslint-plugin-prefer-arrow-functions": "3.4.1",
+		"eslint-plugin-sort-exports": "0.9.1",
+		"eslint-plugin-unused-imports": "4.1.4",
+		"lint-staged": "15.2.9",
+		"prettier": "npm:@yuhr/prettier@3.1.1",
+		"typescript": "5.6.2"
 	},
-	"packageManager": "pnpm@9.10.0+sha256.355a8ab8dbb6ad41befbef39bc4fd6b5df85e12761d2724bd01f13e878de4b13"
+	"packageManager": "pnpm@10.10.0+sha512.d615db246fe70f25dcfea6d8d73dee782ce23e2245e3c4f6f888249fb568149318637dca73c2c5c8ef2a4ca0d5657fb9567188bfab47f566d1ee6ce987815c39"
 }

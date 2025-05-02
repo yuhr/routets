@@ -23,6 +23,8 @@
 		"prettier"
 	],
 	"rules": {
+		"object-shorthand": "warn",
+		"no-useless-rename": "warn",
 		"prefer-arrow-functions/prefer-arrow-functions": "warn",
 		"no-fallthrough": "off",
 		"no-constant-condition": "off",

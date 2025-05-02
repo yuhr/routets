@@ -2,7 +2,7 @@
 	"lock": false,
 	"compilerOptions": {
 		"jsx": "react-jsx",
-		"jsxImportSource": "https://esm.sh/react@18.2.0",
+		"jsxImportSource": "https://esm.sh/react@19.1.0",
 		"strict": true,
 		"exactOptionalPropertyTypes": true,
 		"noUncheckedIndexedAccess": true

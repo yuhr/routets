@@ -24,7 +24,7 @@ namespace Route {
 	> = (context: Context, ...additionalParameters: AdditionalParameters) => Promise<ReturnType>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging, @typescript-eslint/no-empty-object-type
 interface Route extends Route.Handler {}
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
