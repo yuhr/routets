@@ -1,28 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import Route from "./Route.ts"
-import {
-	callsites,
-	type CallSite,
-} from "https://deno.land/x/callsites@0.0.1/modules/callsites/mod.ts"
-import { isAbsolute } from "https://esm.sh/jsr/@std/path@1.0.9/is_absolute.ts"
-import { toFileUrl } from "https://esm.sh/jsr/@std/path@1.0.9/to_file_url.ts"
+import { callsites } from "https://deno.land/x/callsites@0.0.1/modules/callsites/mod.ts"
 
-const getCallSite = () => callsites()[2]!
+const toFileUrl = (path: string): URL => new URL(path, "file:")
 
-const isFileUrl = (url: string | URL) => {
+const isFileUrl = (url: string | URL): boolean => {
 	if (url instanceof URL) return url.protocol === "file:"
 	else return url.startsWith("file://")
-}
-
-const toUrl = (path: string | URL, callSite: CallSite): URL => {
-	if (path instanceof URL) return path
-	try {
-		return new URL(path)
-	} catch (error) {
-		if (isAbsolute(path)) return toFileUrl(path)
-		else return new URL(path, toUrl(callSite.getFileName()!, callSite))
-	}
 }
 
 const encodeUriPathname = (pathname: string) =>
@@ -36,7 +21,7 @@ const normalized: unique symbol = Symbol()
 type OptionsNormalized = {
 	root: URL
 	pattern: RegExp
-	write: string | false
+	write: URL | undefined
 	watch: URL[]
 	importMap: URL | undefined
 	[normalized]: undefined
@@ -46,14 +31,22 @@ const isOptionsNormalized = (
 	options: Router.Options | OptionsNormalized,
 ): options is OptionsNormalized => normalized in options
 
-const normalizeOptions = (
-	options: Router.Options | OptionsNormalized,
-	callSite: CallSite,
-): OptionsNormalized => {
+const getUrlCallSite = (cursor: number) => {
+	try {
+		// console.log(callsites().map(callsite => callsite.toString()))
+		const path = callsites()[cursor]?.getFileName() || undefined
+		if (path === undefined) throw undefined
+		return toFileUrl(path)
+	} catch (error) {
+		throw new Error("Call site detection failed; this is a bug of `routets`.", { cause: error })
+	}
+}
+
+const normalizeOptions = (options: Router.Options | OptionsNormalized): OptionsNormalized => {
 	if (isOptionsNormalized(options)) return options
 
-	if (options.root === "") throw new Error("Specify a directory to find routes.")
-	const root = toUrl(options.root ?? ".", callSite)
+	if (options.root === "") throw new Error("root path cannot be empty.")
+	const root = new URL(options.root ?? ".", getUrlCallSite(3))
 	if (!isFileUrl(root)) throw new Error("Only local paths or file URLs are supported.")
 	if (!root.pathname.endsWith("/")) root.pathname += "/"
 
@@ -64,8 +57,10 @@ const normalizeOptions = (
 		throw new Error("Suffix cannot start or end with dots.")
 	const pattern = createRegExpFromSuffix(suffix)
 
-	if (options.write === "") throw new Error("Index module file name cannot be empty.")
-	const write = options.write ?? false
+	const write = options.write && new URL(options.write, root)
+	if (write === "") throw new Error("Index module file path cannot be empty.")
+	if (write?.pathname.match(pattern)?.groups?.pattern !== undefined)
+		throw new Error("Index module file path cannot ends with a valid route filename.")
 
 	const watch =
 		options.watch === true
@@ -73,12 +68,12 @@ const normalizeOptions = (
 			: options.watch === false || options.watch === undefined
 				? []
 				: typeof options.watch === "string"
-					? [toUrl(options.watch, callSite)]
+					? [new URL(options.watch, root)]
 					: options.watch instanceof URL
 						? [options.watch]
-						: options.watch.map(path => toUrl(path, callSite))
+						: options.watch.map(path => new URL(path, root))
 
-	const importMap = options.importMap ? toUrl(options.importMap, callSite) : undefined
+	const importMap = options.importMap ? new URL(options.importMap, root) : undefined
 
 	return { root, pattern, write, watch, importMap, [normalized]: undefined }
 }
@@ -156,7 +151,7 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 	})
 }
 
-const emit = async (root: URL, routes: Router.Routes, path: string) => {
+const emit = async (root: URL, routes: Router.Routes, path: URL) => {
 	const routetslist = routes
 		.map(
 			([path, route]) =>
@@ -175,7 +170,7 @@ const emit = async (root: URL, routes: Router.Routes, path: string) => {
 	let content = `import Router from "${specifierRouter}"`
 	content += `\nconst routetslist = [\n\t${routetslist}\n] as const`
 	content += `\nawait Deno.serve(new Router(routetslist)).finished`
-	await Deno.writeTextFile(new URL(path, root), content)
+	await Deno.writeTextFile(path, content)
 }
 
 const unexpected = (response: unknown, pathname: string) => {
@@ -206,9 +201,9 @@ namespace Router {
 		/**
 		 * Whether to generate the index module, which is necessary for deployments to environments that don't support dynamic imports, such as Deno Deploy.
 		 *
-		 * @default false
+		 * @default undefined
 		 */
-		readonly write?: string | false | undefined
+		readonly write?: string | URL | undefined
 		/**
 		 * Where to watch for changes and update the routes automatically. If `true`, the same path as the `root` is used.
 		 *
@@ -240,7 +235,7 @@ class Router {
 	 * Enumerates routes. The resolved value can be passed to the constructor.
 	 */
 	static async enumerate(options: Router.Options = {}): Promise<Router.Routes> {
-		const optionsNormalized = normalizeOptions(options, getCallSite())
+		const optionsNormalized = normalizeOptions(options)
 		return await enumerate(optionsNormalized)
 	}
 
@@ -250,7 +245,7 @@ class Router {
 	static async write(
 		options: Pick<Router.Options, "root" | "suffix" | "write"> = {},
 	): Promise<Router.Routes> {
-		const optionsNormalized = normalizeOptions(options, getCallSite())
+		const optionsNormalized = normalizeOptions(options)
 		const { root, write } = optionsNormalized
 		if (!write) throw new Error("`write` option cannot be falsy here.")
 		const routes = await enumerate(optionsNormalized)
@@ -286,20 +281,13 @@ class Router {
 		const { createGraph } = await import("https://esm.sh/jsr/@deno/graph@0.90.0/mod.ts")
 		const { createCache } = await import("https://esm.sh/jsr/@deno/cache-dir@0.20.0/mod.ts")
 		const { resolve, parse } = await import("https://esm.sh/@import-maps/resolve@2.0.0")
-		const { join } = await import("https://esm.sh/jsr/@std/path@1.0.9/join.ts")
 		const { pick } = await import("https://esm.sh/jsr/@std/collections@1.0.11/pick.ts")
-		const { filterValues } = await import(
-			"https://esm.sh/jsr/@std/collections@1.0.11/filter_values.ts"
-		)
 		const importMap = optionsNormalized.importMap
 			? parse(
-					filterValues(
-						pick(JSON.parse(await Deno.readTextFile(optionsNormalized.importMap)), [
-							"imports",
-							"scopes",
-						]),
-						value => value !== undefined,
-					),
+					pick(JSON.parse(await Deno.readTextFile(optionsNormalized.importMap)), [
+						"imports",
+						"scopes",
+					]),
 					optionsNormalized.importMap,
 				)
 			: {}
@@ -308,17 +296,19 @@ class Router {
 			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 			true
 		) {
-			const routes = this.#routes.map(([path]) => toFileUrl(join(root.pathname, path)).href)
-			const graph = await createGraph(routes, {
-				...cache,
-				kind: "codeOnly",
-				resolve: (specifier, referrer) => {
-					const result = resolve(specifier, importMap, new URL(referrer)).resolvedImport?.href
-					if (result === undefined)
-						throw new Error(`Cannot resolve specifier \`${specifier}\` from \`${referrer}\``)
-					else return result
+			const graph = await createGraph(
+				this.#routes.map(([path]) => new URL(path, root).href),
+				{
+					...cache,
+					kind: "codeOnly",
+					resolve: (specifier, referrer) => {
+						const result = resolve(specifier, importMap, new URL(referrer)).resolvedImport?.href
+						if (result === undefined)
+							throw new Error(`Cannot resolve specifier \`${specifier}\` from \`${referrer}\``)
+						else return result
+					},
 				},
-			})
+			)
 			const modules = new Map(
 				graph.modules
 					.filter(({ specifier }) => isFileUrl(specifier))
@@ -370,13 +360,12 @@ class Router {
 	 * ```
 	 */
 	constructor(options: Router.Options | Routetslist = {}) {
-		const callSite = getCallSite()
 		let watch: boolean = false
 
 		if (isRoutetslist(options)) {
 			this.#populateWithRoutetslist(options)
 		} else {
-			const optionsNormalized = normalizeOptions(options, callSite)
+			const optionsNormalized = normalizeOptions(options)
 			watch = 0 < optionsNormalized.watch.length
 			this.#populateWithOptionsNormalized(optionsNormalized)
 		}
