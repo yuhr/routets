@@ -174,13 +174,13 @@ const emit = async (root: URL, routes: Router.Routes, path: URL) => {
 }
 
 const unexpected = (response: unknown, pathname: string) => {
-	console.error(`Unexpected response value for route \`${pathname}\`: ${Deno.inspect(response)}`)
+	console.error(`Unexpected response value for route \`${pathname}\`: ${response}`)
 	console.error("Only a `Response` or `undefined` is allowed to be returned from a handler.")
 	return new Response(undefined, { status: 500 })
 }
 
 const thrown = (error: unknown, pathname: string) => {
-	console.error(`Handler threw for route \`${pathname}\`: ${Deno.inspect(error)}`)
+	console.error(`Handler threw for route \`${pathname}\`: ${error}`)
 	return new Response(undefined, { status: 500 })
 }
 
