@@ -22,7 +22,7 @@ const { args, options } = await new Command()
 	.name("routets")
 	.usage("[root] [options]")
 	.description(
-		"A simple interface to use `routets` from command line. It searches routes for `<root>/**/*.<suffix>.{ts,tsx}`. When running without specifying `root`, the current working directory is implied.\n\nFurther documentation can be found at <https://github.com/yuhr/routets>.",
+		"A simple command line interface to use `routets` with Deno. It searches routes for `<root>/**/*.<suffix>.{ts,tsx}`. When running without specifying `root`, the current working directory is implied.\n\nFurther documentation can be found at <https://github.com/yuhr/routets>.",
 	)
 	.arguments("[root:string]")
 	.option(

@@ -138,7 +138,7 @@ And don't forget to add following options to your `deno.json`:
 {
 	"compilerOptions": {
 		"jsx": "react-jsx",
-		"jsxImportSource": "https://esm.sh/react@18.2.0"
+		"jsxImportSource": "https://esm.sh/react@19.1.0"
 	}
 }
 ```
