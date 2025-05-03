@@ -1,9 +1,9 @@
 name: Deploy
 on:
   push:
-    branches: develop
+    branches: [develop]
   pull_request:
-    branches: develop
+    branches: [develop]
 
 jobs:
   deploy:
@@ -30,5 +30,4 @@ jobs:
         uses: denoland/deployctl@v1
         with:
           project: "routets-examples"
-          entrypoint: "examples/serve.gen.ts"
-          root: ""
+          entrypoint: "serve.gen.ts"

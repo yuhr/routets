@@ -33,7 +33,7 @@ const isOptionsNormalized = (
 
 const getUrlCallSite = (cursor: number) => {
 	try {
-		// console.log(callsites().map(callsite => callsite.toString()))
+		// console.log(callsites().map(callSite => callSite.toString()))
 		const path = callsites()[cursor]?.getFileName() || undefined
 		if (path === undefined) throw undefined
 		return toFileUrl(path)
@@ -45,9 +45,11 @@ const getUrlCallSite = (cursor: number) => {
 const normalizeOptions = (options: Router.Options | OptionsNormalized): OptionsNormalized => {
 	if (isOptionsNormalized(options)) return options
 
-	if (options.root === "") throw new Error("root path cannot be empty.")
-	const root = new URL(options.root ?? ".", getUrlCallSite(3))
-	if (!isFileUrl(root)) throw new Error("Only local paths or file URLs are supported.")
+	const callSite = getUrlCallSite(3)
+
+	if (options.root === "") throw new Error("Root path cannot be empty.")
+	const root = new URL(options.root ?? ".", callSite)
+	if (!isFileUrl(root)) throw new Error("Root path can only be a local path or a file URL.")
 	if (!root.pathname.endsWith("/")) root.pathname += "/"
 
 	if (options.suffix === "") throw new Error("Suffix cannot be empty.")
@@ -57,7 +59,7 @@ const normalizeOptions = (options: Router.Options | OptionsNormalized): OptionsN
 		throw new Error("Suffix cannot start or end with dots.")
 	const pattern = createRegExpFromSuffix(suffix)
 
-	const write = options.write && new URL(options.write, root)
+	const write = options.write && new URL(options.write, callSite)
 	if (write === "") throw new Error("Index module file path cannot be empty.")
 	if (write?.pathname.match(pattern)?.groups?.pattern !== undefined)
 		throw new Error("Index module file path cannot ends with a valid route filename.")
@@ -68,12 +70,12 @@ const normalizeOptions = (options: Router.Options | OptionsNormalized): OptionsN
 			: options.watch === false || options.watch === undefined
 				? []
 				: typeof options.watch === "string"
-					? [new URL(options.watch, root)]
+					? [new URL(options.watch, callSite)]
 					: options.watch instanceof URL
 						? [options.watch]
-						: options.watch.map(path => new URL(path, root))
+						: options.watch.map(path => new URL(path, callSite))
 
-	const importMap = options.importMap ? new URL(options.importMap, root) : undefined
+	const importMap = options.importMap ? new URL(options.importMap, callSite) : undefined
 
 	return { root, pattern, write, watch, importMap, [normalized]: undefined }
 }
@@ -152,21 +154,19 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 }
 
 const emit = async (root: URL, routes: Router.Routes, path: URL) => {
+	const { relative } = await import("https://esm.sh/jsr/@std/path@1.0.9/posix/relative.ts")
+	const { dirname } = await import("https://esm.sh/jsr/@std/path@1.0.9/posix/dirname.ts")
+	const from = dirname(path.pathname)
 	const routetslist = routes
 		.map(
-			([path, route]) =>
+			([pathRoute, route]) =>
 				`[${JSON.stringify(route.pattern.pathname)}, (await import(${JSON.stringify(
-					`./${encodeUriPathname(path)}`,
+					`./${encodeUriPathname(relative(from, new URL(pathRoute, root).pathname))}`,
 				)})).default]`,
 		)
 		.join(",\n\t")
 	const self = new URL(import.meta.url)
-	const specifierRouter = isFileUrl(self)
-		? `./${(await import("https://esm.sh/jsr/@std/path@1.0.9/relative.ts")).relative(
-				root.pathname,
-				self.pathname,
-			)}`
-		: self.href
+	const specifierRouter = isFileUrl(self) ? `./${relative(from, self.pathname)}` : self.href
 	let content = `import Router from "${specifierRouter}"`
 	content += `\nconst routetslist = [\n\t${routetslist}\n] as const`
 	content += `\nawait Deno.serve(new Router(routetslist)).finished`
@@ -189,6 +189,8 @@ namespace Router {
 		/**
 		 * The serving root directory to search for routes.
 		 *
+		 * Relative from the call site of the function to which this option will be passed.
+		 *
 		 * @default "."
 		 */
 		readonly root?: string | URL | undefined
@@ -199,7 +201,9 @@ namespace Router {
 		 */
 		readonly suffix?: string | undefined
 		/**
-		 * Whether to generate the index module, which is necessary for deployments to environments that don't support dynamic imports, such as Deno Deploy.
+		 * The path to generate an index module at, which is necessary for deployments to environments that don't support dynamic imports, such as Deno Deploy.
+		 *
+		 * Relative from the call site of the function to which this option will be passed.
 		 *
 		 * @default undefined
 		 */
@@ -207,11 +211,15 @@ namespace Router {
 		/**
 		 * Where to watch for changes and update the routes automatically. If `true`, the same path as the `root` is used.
 		 *
+		 * Relative from the call site of the function to which this option will be passed.
+		 *
 		 * @default false
 		 */
 		readonly watch?: boolean | string | URL | readonly (string | URL)[] | undefined
 		/**
 		 * The path to the JSON file representing the import map to be used while watching.
+		 *
+		 * Relative from the call site of the function to which this option will be passed.
 		 *
 		 * @default undefined
 		 */

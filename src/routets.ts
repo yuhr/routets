@@ -15,6 +15,7 @@ const tryFindConfigCwd = async (pathToDenoManifest: string) => {
 
 const cwd = Deno.cwd()
 const toAbsolute = (path: string) => (isAbsolute(path) ? path : resolve(cwd, path))
+const toFileUrl = (path: string) => new URL(toAbsolute(path), "file:")
 
 const [first, ...rest] = Deno.args
 const argsRaw = first === marker ? rest : Deno.args
@@ -32,19 +33,19 @@ const { args, options } = await new Command()
 	)
 	.option(
 		"--watch [...paths:string]",
-		"Enables watching for file changes and reloading routes. Without paths, the same directory as `root` is implied.",
+		"Enables watching for file changes and reloading routes. Without paths, the same directory as `root` is implied. Supports multiple paths, relative from the current working directory.",
 		{ default: true },
 	)
 	.option("--no-watch", "Disables watching.")
 	.option(
 		"--write <path:string>",
-		"Enables generating an index module at the specified path, relative to `root`. With `--watch` option, it is rewritten on every change. The path cannot ends with a valid route filename.",
+		"Enables generating an index module at the specified path, relative from the current working directory. With `--watch` option, it is rewritten on every change. The path cannot ends with a valid route filename.",
 		{ default: undefined },
 	)
 	.option("--no-serve", "Disables serving. Useful when you only want to generate an index module.")
 	.option(
 		"--config <path:string>",
-		"Specifies a path to the Deno maifest JSON file i.e. `deno.json` or `deno.jsonc`. Defaulting to the one in the current working directory if it exists.",
+		"Specifies a path to the Deno maifest JSON file i.e. `deno.json` or `deno.jsonc`, relative from the current working directory. Defaulting to the one in the current working directory if it exists.",
 	)
 	.option(
 		"--import-map <path:string>",
@@ -61,7 +62,7 @@ const { args, options } = await new Command()
 	.parse(argsRaw)
 const {
 	suffix,
-	write,
+	write: writeSpecified,
 	watch: watchSpecified,
 	serve,
 	config: configSpecified,
@@ -70,18 +71,18 @@ const {
 	port: portSpecified,
 } = options
 
-const config =
-	(configSpecified && toAbsolute(configSpecified)) ||
-	(await tryFindConfigCwd("deno.jsonc")
-		.catch(async () => await tryFindConfigCwd("deno.json"))
-		.then(toAbsolute)
-		.catch(() => undefined))
-const importMap = importMapSpecified && toAbsolute(importMapSpecified)
+const config = configSpecified
+	? toFileUrl(configSpecified)
+	: await tryFindConfigCwd("deno.jsonc")
+			.catch(async () => await tryFindConfigCwd("deno.json"))
+			.then(toFileUrl)
+			.catch(() => undefined)
+const importMap = importMapSpecified && toFileUrl(importMapSpecified)
 
 if (import.meta.main && Deno.args[0] !== marker) {
 	// Required running in another process, because installed scripts don't support import maps out of the box.
-	const argsConfig = config ? ["--config", config] : []
-	const argsImportMap = importMap ? ["--import-map", importMap] : []
+	const argsConfig = config ? ["--config", config.pathname] : []
+	const argsImportMap = importMap ? ["--import-map", importMap.pathname] : []
 	const command = new Deno.Command(Deno.execPath(), {
 		args: ["run", "-A", ...argsConfig, ...argsImportMap, import.meta.url, marker, ...Deno.args],
 		...{ stdin: "piped", stdout: "piped", stderr: "piped" },
@@ -96,10 +97,14 @@ if (import.meta.main && Deno.args[0] !== marker) {
 		const [rootSpecified = cwd, ...rest] = args
 		if (rest.length) throw new Error(`Unexpected arguments: ${rest.join(" ")}`)
 
-		const root = toAbsolute(rootSpecified)
-		const watch = (
-			watchSpecified === true ? [root] : watchSpecified === false ? [] : watchSpecified
-		).map(toAbsolute)
+		const root = toFileUrl(rootSpecified)
+		const watch =
+			watchSpecified === true
+				? [root]
+				: watchSpecified === false
+					? []
+					: watchSpecified.map(toFileUrl)
+		const write = writeSpecified && toFileUrl(writeSpecified)
 
 		if (serve) {
 			let port: number | undefined = undefined
