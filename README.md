@@ -4,11 +4,11 @@
 
 [![License](https://img.shields.io/github/license/yuhr/routets?color=%231e2327)](LICENSE)
 
-Vanilla filesystem-based routing for Deno.
+Vanilla filesystem-based routing for TypeScript.
 
 <br><br></div>
 
-`routets` is a [`Deno.ServeHandler`](https://docs.deno.com/api/deno/~/Deno.ServeHandler) generator that performs filesystem-based routing.
+`routets` is an HTTP request handler generator that performs filesystem-based routing.
 
 No other stuff. That's all. I was always tired of fullstack frameworks such as Fresh or Aleph.js, because of the tightly coupled design that forces users to be on the rails. So I ended up making this stupid-simple solution, which is aimed to be:
 
@@ -19,7 +19,9 @@ No other stuff. That's all. I was always tired of fullstack frameworks such as F
 - No lock-in to a specific architecture; MPA or SPA, SSR or CSR, etc.
 - Use of Web standard APIs
 
-So, `routets` is deliberately less-featured. It just provides a basic building block for writing web servers in Deno, leveraging Create Your Own™ style of experience.
+So, `routets` is deliberately less-featured. It just provides a basic building block for writing web servers in TypeScript, leveraging Create Your Own™ style of experience.
+
+`routets` primarily targets Deno and Deno Deploy, but its core APIs (i.e. `Router` and `Route`) are meant to work across multiple runtimes.
 
 ## Basic Usage
 
@@ -33,12 +35,12 @@ export default new Route(async () => {
 })
 ```
 
-`routets` comes with a built-in CLI. During development, you can use this and serve your routes immediately:
+`routets` comes with a built-in CLI for Deno. During development, you can use this and serve your routes immediately:
 
 ```sh
 $ deno install -gAf https://deno.land/x/routets/routets.ts
 $ routets # or `routets somewhere` to serve `somewhere/greet.route.ts` at `/greet`
-Listening on http://0.0.0.0:8000/
+Listening on http://0.0.0.0:8000/ (http://localhost:8000/)
 Routes:
 + /greet
 ```
@@ -50,7 +52,7 @@ Alternatively, of course you can create your own script:
 ```ts
 import Router from "https://deno.land/x/routets/Router.ts"
 
-await Deno.serve(new Router({ root: ".", watch: true, write: "serve.gen.ts" })).finished
+await Deno.serve(new Router({ root: ".", watch: true })).finished
 ```
 
 ## Advanced Usage
@@ -180,7 +182,7 @@ Notably, use of suffix allows you to place related modules like `*.test.ts` asid
 
 Basically, `routets` uses non-statically-analyzeable dynamic imports to discover routes. This works well locally, but can be a problem if you want to get it to work with environments that don't support non-statically-analyzeable dynamic imports, such as [Deno Deploy](https://github.com/denoland/deploy_feedback/issues/433).
 
-For this use case, by default the `routets` CLI generates a server module `serve.gen.ts` that does only statically-analyzeable dynamic import of routes. This module can directly be used as the entrypoint for Deno Deploy. You can disable this behavior by `--no-write` option.
+For this use case, you can use `routets --write serve.gen.ts` which generates an index module at the specified path (relative to the serving root) that does only statically-analyzeable dynamic import of routes. This module can directly be used as the entrypoint for Deno Deploy.
 
 ## Difference from `fsrouter`
 

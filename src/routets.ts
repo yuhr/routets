@@ -37,21 +37,20 @@ const { args, options } = await new Command()
 	)
 	.option("--no-watch", "Disables watching.")
 	.option(
-		"--write [path:string]",
-		"Enables generating the index module at the specified path, relative to `root`.",
-		{ default: "serve.gen.ts" },
+		"--write <path:string>",
+		"Enables generating an index module at the specified path, relative to `root`. With `--watch` option, it is rewritten on every change. The path cannot ends with a valid route filename.",
+		{ default: undefined },
 	)
-	.option("--no-write", "Disables generating the index module.")
-	.option("--no-serve", "Disables serving. Useful when you only want to generate the index module.")
+	.option("--no-serve", "Disables serving. Useful when you only want to generate an index module.")
 	.option(
-		"--config <string>",
+		"--config <path:string>",
 		"Specifies a path to the Deno maifest JSON file i.e. `deno.json` or `deno.jsonc`. Defaulting to the one in the current working directory if it exists.",
 	)
 	.option(
-		"--import-map <string>",
+		"--import-map <path:string>",
 		"Specifies a path to the import map JSON file to use while watching. Defaulting to the one specified in the Deno manifest JSON file in the current working directory if it exists.",
 	)
-	.option("--hostname <hostname:string>", "Specifies the hostname to serve at.", {
+	.option("--hostname <string>", "Specifies the hostname to serve at.", {
 		default: "0.0.0.0",
 	})
 	.option(
@@ -62,7 +61,7 @@ const { args, options } = await new Command()
 	.parse(argsRaw)
 const {
 	suffix,
-	write: writeSpecified,
+	write,
 	watch: watchSpecified,
 	serve,
 	config: configSpecified,
@@ -98,7 +97,6 @@ if (import.meta.main && Deno.args[0] !== marker) {
 		if (rest.length) throw new Error(`Unexpected arguments: ${rest.join(" ")}`)
 
 		const root = toAbsolute(rootSpecified)
-		const write = writeSpecified === true ? `serve.gen.ts` : writeSpecified
 		const watch = (
 			watchSpecified === true ? [root] : watchSpecified === false ? [] : watchSpecified
 		).map(toAbsolute)
@@ -121,13 +119,15 @@ if (import.meta.main && Deno.args[0] !== marker) {
 			}
 		} else if (watch.length) {
 			if (write) {
-				console.log("Running with `--no-serve`; only watching and generating the manifest file.")
+				console.log("Running with `--no-serve`; only watching and generating the index module.")
 				const router = new Router({ root, suffix, write, watch, importMap })
 				for await (const urls of router.watch) {
 					/* empty */
 				}
 			} else {
-				throw new Error("Running with `--no-serve` and `--no-write` does nothing; maybe mistake?")
+				throw new Error(
+					"Running with `--no-serve` without `--write` does nothing; maybe a mistake?",
+				)
 			}
 		} else if (write) {
 			console.log("Running with `--no-serve` and `--no-watch`; only generating the manifest file.")
