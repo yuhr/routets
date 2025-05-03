@@ -182,7 +182,7 @@ Notably, use of suffix allows you to place related modules like `*.test.ts` asid
 
 Basically, `routets` uses non-statically-analyzeable dynamic imports to discover routes. This works well locally, but can be a problem if you want to get it to work with environments that don't support non-statically-analyzeable dynamic imports, such as [Deno Deploy](https://github.com/denoland/deploy_feedback/issues/433).
 
-For this use case, you can use `routets --write serve.gen.ts` which generates an index module at the specified path (relative to the serving root) that does only statically-analyzeable dynamic import of routes. This module can directly be used as the entrypoint for Deno Deploy.
+For this use case, you can use `routets --write serve.gen.ts` which generates an index module at the specified path (relative from the serving root) that does only statically-analyzeable dynamic import of routes. This module can directly be used as the entrypoint for Deno Deploy.
 
 ## Difference from `fsrouter`
 
