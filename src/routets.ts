@@ -133,6 +133,7 @@ if (import.meta.main && Deno.args[0] !== marker) {
 			console.log("Running with `--no-serve` and `--no-watch`; only generating the manifest file.")
 			await Router.write({ root, suffix, write })
 		}
+		Deno.exit(0)
 	} catch (error) {
 		console.error(error)
 		Deno.exit(1)
