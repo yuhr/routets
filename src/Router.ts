@@ -235,7 +235,7 @@ interface Router {
 }
 
 /**
- * A [`Deno.ServeHandler`](https://docs.deno.com/api/deno/~/Deno.ServeHandler) generator that performs filesystem-based routing.
+ * An HTTP handler generator that performs filesystem-based routing.
  */
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 class Router {
@@ -360,7 +360,7 @@ class Router {
 	}
 
 	/**
-	 * Creates a router instance that implements [`Deno.ServeHandler`](https://docs.deno.com/api/deno/~/Deno.ServeHandler).
+	 * Creates a router instance that implements `(request: Request) => Promise<Response>`.
 	 *
 	 * @example
 	 * ```typescript
