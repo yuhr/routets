@@ -19,12 +19,12 @@ const decodeUriPathname = (pathname: string) =>
 const normalized: unique symbol = Symbol()
 
 type OptionsNormalized = {
-	root: URL
-	pattern: RegExp
-	write: URL | undefined
-	watch: URL[]
-	importMap: URL | undefined
-	[normalized]: undefined
+	readonly root: URL
+	readonly pattern: RegExp
+	readonly write: URL | undefined
+	readonly watch: readonly URL[]
+	readonly importMap: URL | undefined
+	readonly [normalized]: undefined
 }
 
 const isOptionsNormalized = (
