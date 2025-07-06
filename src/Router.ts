@@ -134,8 +134,9 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 		transformer: async (url, path) => {
 			const pathname = `/${path}`.match(pattern)?.groups?.pattern
 			if (pathname) {
-				const specifier = url.href + "?timestamp=" + timestamp
-				const { default: route, precedence = 0 } = await import(specifier)
+				const specifier = new URL(url)
+				specifier.searchParams.set("timestamp", timestamp.toString())
+				const { default: route, precedence = 0 } = await import(specifier.href)
 				if (typeof precedence !== "number") throw new Error("Precedence must be a number.")
 				if (Number.isNaN(precedence)) throw new Error("`NaN` is not a valid precedence.")
 				if (Route.isRoute(route)) {
