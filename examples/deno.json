@@ -7,6 +7,5 @@
 		"exactOptionalPropertyTypes": true,
 		"noUncheckedIndexedAccess": true
 	},
-	"include": ["**/*.ts", "**/*.tsx"],
 	"importMap": "import-map.json"
 }

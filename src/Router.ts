@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import Route from "./Route.ts"
+import translateImportMap from "./import-map/translateImportMap.ts"
 import { callsites } from "https://deno.land/x/callsites@0.0.1/modules/callsites/mod.ts"
+import { type ImportMap, type ParsedImportMap } from "https://esm.sh/@import-maps/resolve@2.0.0"
 
 const toFileUrl = (path: string): URL => new URL(path, "file:")
 
@@ -28,7 +30,7 @@ type OptionsNormalized = {
 }
 
 const isOptionsNormalized = (
-	options: Router.Options | OptionsNormalized,
+	options: Router.Options | OptionsNormalized
 ): options is OptionsNormalized => normalized in options
 
 const getUrlCallSite = (cursor: number) => {
@@ -124,7 +126,7 @@ const isRoutetslist = (value: unknown): value is Routetslist =>
 			route.length === 3 &&
 			typeof route[0] === "string" &&
 			typeof route[1] === "string" &&
-			Route.isRoute(route[2]),
+			Route.isRoute(route[2])
 	)
 
 const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.Routes> => {
@@ -152,23 +154,23 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 		.sort(
 			([, [precedenceA, routeA]], [, [precedenceB, routeB]]) =>
 				precedenceB - precedenceA ||
-				compareByCodepoints(routeB.pattern.pathname, routeA.pattern.pathname),
+				compareByCodepoints(routeB.pattern.pathname, routeA.pattern.pathname)
 		)
 		.map(([, [, route]]) => route)
 }
 
 const emit = async (root: URL, routes: Router.Routes, path: URL) => {
-	const { relative } = await import("https://esm.sh/jsr/@std/path@1.0.9/posix/relative.ts")
-	const { dirname } = await import("https://esm.sh/jsr/@std/path@1.0.9/posix/dirname.ts")
+	const { relative } = await import("https://esm.sh/jsr/@std/path@1.1.5/posix/relative.ts")
+	const { dirname } = await import("https://esm.sh/jsr/@std/path@1.1.5/posix/dirname.ts")
 	const from = dirname(path.pathname)
 	const routetslist = routes
 		.map(
 			route =>
 				`[${JSON.stringify(route.pattern.pathname)}, ${JSON.stringify(
-					route.pathRelative,
+					route.pathRelative
 				)}, (await import(${JSON.stringify(
-					`./${encodeUriPathname(relative(from, new URL(route.pathRelative, root).pathname))}`,
-				)})).default]`,
+					`./${encodeUriPathname(relative(from, new URL(route.pathRelative, root).pathname))}`
+				)})).default]`
 		)
 		.join(",\n\t")
 	const self = new URL(import.meta.url)
@@ -180,13 +182,13 @@ const emit = async (root: URL, routes: Router.Routes, path: URL) => {
 }
 
 const unexpected = (response: unknown, pathname: string) => {
-	console.error(`Unexpected response value for route \`${pathname}\`: ${response}`)
+	console.error(`Unexpected response value for route \`${pathname}\`:`, response)
 	console.error("Only a `Response` or `undefined` is allowed to be returned from a handler.")
 	return new Response(undefined, { status: 500 })
 }
 
 const thrown = (error: unknown, pathname: string) => {
-	console.error(`Handler threw for route \`${pathname}\`: ${error}`)
+	console.error(`Handler threw for route \`${pathname}\`:`, error)
 	return new Response(undefined, { status: 500 })
 }
 
@@ -257,7 +259,7 @@ class Router {
 	 * Enumerates routes and generates the index module. The resolved value can be passed to the constructor.
 	 */
 	static async write(
-		options: Pick<Router.Options, "root" | "suffix" | "write"> = {},
+		options: Pick<Router.Options, "root" | "suffix" | "write"> = {}
 	): Promise<Router.Routes> {
 		const optionsNormalized = normalizeOptions(options)
 		const { root, write } = optionsNormalized
@@ -276,7 +278,7 @@ class Router {
 		logRoutes(this.#routes)
 	}
 	async #populateWithOptionsNormalized(
-		optionsNormalized: OptionsNormalized,
+		optionsNormalized: OptionsNormalized
 	): Promise<void | never> {
 		const { root, write, watch } = optionsNormalized
 		this.#routes = await enumerate(optionsNormalized)
@@ -288,23 +290,27 @@ class Router {
 	/**
 	 * An `AsyncIterable` that yields the file URLs of the changed files as per watch. If watching is disabled, returns immediately.
 	 */
-	watch: AsyncIterable<Set<URL>>
+	watch: AsyncIterable<Route.Update>
 	#eventTarget: EventTarget | undefined
+	#importMap: ParsedImportMap | undefined
+	#importMapOriginal: ImportMap | undefined
 	async #watch(urls: [URL, ...URL[]], optionsNormalized: OptionsNormalized) {
 		const { root, write } = optionsNormalized
 		const { createGraph } = await import("https://esm.sh/jsr/@deno/graph@0.90.0/mod.ts")
 		const { createCache } = await import("https://esm.sh/jsr/@deno/cache-dir@0.20.0/mod.ts")
 		const { resolve, parse } = await import("https://esm.sh/@import-maps/resolve@2.0.0")
 		const { pick } = await import("https://esm.sh/jsr/@std/collections@1.0.11/pick.ts")
-		const importMap = optionsNormalized.importMap
-			? parse(
-					pick(JSON.parse(await Deno.readTextFile(optionsNormalized.importMap)), [
-						"imports",
-						"scopes",
-					]),
-					optionsNormalized.importMap,
-				)
+		const importMap: ImportMap = optionsNormalized.importMap
+			? pick(JSON.parse(await Deno.readTextFile(optionsNormalized.importMap)), [
+					"imports",
+					"scopes",
+				])
 			: {}
+		const importMapParsed: ParsedImportMap = optionsNormalized.importMap
+			? parse(importMap, optionsNormalized.importMap)
+			: {}
+		this.#importMapOriginal = importMap
+		this.#importMap = importMapParsed
 		const cache = createCache()
 		while (
 			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -316,25 +322,24 @@ class Router {
 					...cache,
 					kind: "codeOnly",
 					resolve: (specifier, referrer) => {
-						const result = resolve(specifier, importMap, new URL(referrer)).resolvedImport?.href
+						const result = resolve(specifier, importMapParsed, new URL(referrer)).resolvedImport
+							?.href
 						if (result === undefined)
 							throw new Error(`Cannot resolve specifier \`${specifier}\` from \`${referrer}\``)
 						else return result
 					},
-				},
+				}
 			)
 			const modules = new Map(
 				graph.modules
 					.filter(({ specifier }) => isFileUrl(specifier))
-					.map(module => [module.specifier, module]),
+					.map(module => [module.specifier, module])
 			)
 			const getDependents = (specifier: URL) =>
 				[...modules.values()]
 					.filter(
 						module =>
-							module.dependencies?.some(
-								dependency => dependency.code?.specifier === specifier.href,
-							),
+							module.dependencies?.some(dependency => dependency.code?.specifier === specifier.href)
 					)
 					.map(({ specifier }) => new URL(specifier))
 			const getAffected = (specifier: URL) => {
@@ -343,7 +348,7 @@ class Router {
 				return [...new Set(affected)]
 			}
 			const modulePaths = [...modules.keys()].map(specifier =>
-				decodeUriPathname(new URL(specifier).pathname),
+				decodeUriPathname(new URL(specifier).pathname)
 			)
 			try {
 				const watcher = Deno.watchFs([...urls.map(url => url.pathname), ...modulePaths])
@@ -353,11 +358,30 @@ class Router {
 					if (write) await emit(root, routes, write)
 					logRoutes(routes, this.#routes)
 					this.#routes = routes
-					this.#eventTarget?.dispatchEvent(
-						new CustomEvent<Set<URL>>("reload", {
-							detail: new Set(event.paths.map(toFileUrl).flatMap(getAffected)),
-						}),
-					)
+					const changed = new Set(event.paths.map(toFileUrl))
+					const affected = new Set([...changed].flatMap(getAffected))
+					const detail = (
+						{
+							create: () => ({ added: changed, removed: new Set(), changed: new Set(), affected }),
+							rename: () => void console.info("Unsupported watch event: `rename`:", event),
+							remove: () => ({ added: new Set(), removed: changed, changed: new Set(), affected }),
+							modify: () => ({ added: new Set(), removed: new Set(), changed, affected }),
+							access: () => undefined,
+							any: () => undefined,
+							other: () => undefined,
+						} satisfies { [K in Deno.FsEvent["kind"]]: () => Omit<Route.Update, "any"> | undefined }
+					)[event.kind]()
+					if (detail)
+						this.#eventTarget?.dispatchEvent(
+							new CustomEvent<Route.Update>("reload", {
+								detail: {
+									...detail,
+									get any() {
+										return this.added.union(this.removed).union(this.changed).union(this.affected)
+									},
+								},
+							})
+						)
 				}
 			} catch (error) {
 				console.error(error)
@@ -375,12 +399,14 @@ class Router {
 	 */
 	constructor(options: Router.Options | Routetslist = {}) {
 		let watch: boolean = false
+		let root: URL | undefined
 
 		if (isRoutetslist(options)) {
 			this.#populateWithRoutetslist(options)
 		} else {
 			const optionsNormalized = normalizeOptions(options)
 			watch = 0 < optionsNormalized.watch.length
+			root = optionsNormalized.root
 			this.#populateWithOptionsNormalized(optionsNormalized)
 		}
 
@@ -393,7 +419,7 @@ class Router {
 						"https://deno.land/x/deno_event_iterator@v2.0.2/mod.ts"
 					)
 					for await (const event of subscribe.call(eventTarget, "reload"))
-						yield (event as CustomEvent<Set<URL>>).detail
+						yield (event as CustomEvent<Route.Update>).detail
 				},
 			}
 		} else {
@@ -412,12 +438,26 @@ class Router {
 						const captured = match.pathname.groups
 						const pattern = new URLPattern(route.pattern)
 						const path = route.pathRelative
+						const updates = this.watch
+						const importMap = this.#importMap ?? {}
+						const importMapOriginal = this.#importMapOriginal ?? {}
 						const response = await route({
 							request,
 							captured,
 							path,
 							pattern,
+							updates,
+							importMap,
+							importMapOriginal,
+							get importMapTranslated() {
+								return translateImportMap(
+									importMapOriginal,
+									root!,
+									new URL(new URL(request.url).pathname.substring(1), root!)
+								)
+							},
 							router: this,
+							root: root!,
 						})
 						if (response instanceof Response) return response
 						// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition

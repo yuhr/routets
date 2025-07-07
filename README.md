@@ -108,8 +108,8 @@ To exercise this, here we add support for returning a React element from handler
 
 ```tsx
 import Route from "https://deno.land/x/routets/Route.ts"
-import { renderToReadableStream } from "https://esm.sh/react-dom@19.1.0/server"
-import { type ReactElement, Suspense } from "https://esm.sh/react@19.1.0"
+import { renderToReadableStream } from "https://esm.sh/react-dom@19.2.7/server"
+import { type ReactElement, Suspense } from "https://esm.sh/react@19.2.7"
 
 class RouteReact extends Route {
 	constructor(handler: Route.Handler<ReactElement<unknown>>) {
@@ -121,9 +121,9 @@ class RouteReact extends Route {
 						<body>
 							<Suspense fallback={<p>Loading...</p>}>{response}</Suspense>
 						</body>
-					</html>,
+					</html>
 				),
-				{ headers: { "Content-Type": "text/html" } },
+				{ headers: { "Content-Type": "text/html" } }
 			)
 		})
 	}
@@ -138,7 +138,7 @@ And don't forget to add following options to your `deno.json`:
 {
 	"compilerOptions": {
 		"jsx": "react-jsx",
-		"jsxImportSource": "https://esm.sh/react@19.1.0"
+		"jsxImportSource": "https://esm.sh/react@19.2.7"
 	}
 }
 ```
