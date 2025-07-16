@@ -101,8 +101,8 @@ const compareByCodepoints = (a: string, b: string) => {
 
 const logRoutes = (updated: Router.Routes, stale?: Router.Routes) => {
 	if (stale) {
-		const setUpdated = new Set(updated.map(([, route]) => route.pattern.pathname))
-		const setStale = new Set(stale.map(([, route]) => route.pattern.pathname))
+		const setUpdated = new Set(updated.map(route => route.pattern.pathname))
+		const setStale = new Set(stale.map(route => route.pattern.pathname))
 		const added = [...setUpdated.difference(setStale)]
 		const removed = [...setStale.difference(setUpdated)]
 		if (0 < added.length + removed.length) console.info("Routes diff:")
@@ -110,11 +110,11 @@ const logRoutes = (updated: Router.Routes, stale?: Router.Routes) => {
 		if (0 < removed.length) console.info(removed.map(pattern => "- " + pattern).join("\n"))
 	} else {
 		console.info("Routes:")
-		console.info(updated.map(([, route]) => `+ ${route.pattern.pathname}`).join("\n"))
+		console.info(updated.map(route => `+ ${route.pattern.pathname}`).join("\n"))
 	}
 }
 
-type Routetslist = readonly (readonly [string, Route])[]
+type Routetslist = readonly (readonly [string, string, Route])[]
 
 const isRoutetslist = (value: unknown): value is Routetslist =>
 	Array.isArray(value) &&
@@ -131,8 +131,8 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 	const distree = await (
 		await import("https://deno.land/x/distree@v3.0.2/fromDirectory.ts")
 	).default(root, {
-		transformer: async (url, path) => {
-			const pathname = `/${path}`.match(pattern)?.groups?.pattern
+		transformer: async (url, pathRelative) => {
+			const pathname = `/${pathRelative}`.match(pattern)?.groups?.pattern
 			if (pathname) {
 				const specifier = new URL(url)
 				specifier.searchParams.set("timestamp", timestamp.toString())
@@ -141,17 +141,19 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 				if (Number.isNaN(precedence)) throw new Error("`NaN` is not a valid precedence.")
 				if (Route.isRoute(route)) {
 					const pattern = new URLPattern({ pathname })
-					return Object.assign(route, { pattern, precedence })
+					return Object.assign(route, { pathRelative, pattern, precedence })
 				}
 			}
 			throw undefined
 		},
 	})
-	return [...distree].sort(([, a], [, b]) => {
-		const precedence = b.precedence - a.precedence
-		if (precedence !== 0) return precedence
-		return compareByCodepoints(b.pattern.pathname, a.pattern.pathname)
-	})
+	return [...distree]
+		.map(([, route]) => route)
+		.sort((routeA, routeB) => {
+			const precedence = routeB.precedence - routeA.precedence
+			if (precedence !== 0) return precedence
+			return compareByCodepoints(routeB.pattern.pathname, routeA.pattern.pathname)
+		})
 }
 
 const emit = async (root: URL, routes: Router.Routes, path: URL) => {
@@ -160,9 +162,11 @@ const emit = async (root: URL, routes: Router.Routes, path: URL) => {
 	const from = dirname(path.pathname)
 	const routetslist = routes
 		.map(
-			([pathRoute, route]) =>
-				`[${JSON.stringify(route.pattern.pathname)}, (await import(${JSON.stringify(
-					`./${encodeUriPathname(relative(from, new URL(pathRoute, root).pathname))}`,
+			route =>
+				`[${JSON.stringify(route.pattern.pathname)}, ${JSON.stringify(
+					route.pathRelative,
+				)}, (await import(${JSON.stringify(
+					`./${encodeUriPathname(route.pathRelative)}`,
 				)})).default]`,
 		)
 		.join(",\n\t")
@@ -227,7 +231,7 @@ namespace Router {
 		readonly importMap?: string | URL | undefined
 	}
 
-	export type Routes = readonly (readonly [string, Route & { pattern: URLPattern }])[]
+	export type Routes = readonly (Route & { pathRelative: string; pattern: URLPattern })[]
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
@@ -264,9 +268,9 @@ class Router {
 
 	#routes: Router.Routes = []
 	async #populateWithRoutetslist(routetslist: Routetslist): Promise<void | never> {
-		this.#routes = routetslist.map(([pathname, route]) => {
-			const pattern = new URLPattern({ pathname })
-			return [pathname, Object.assign(route, { pattern })]
+		this.#routes = routetslist.map(([patternPathname, pathRelative, route]) => {
+			const pattern = new URLPattern({ pathname: patternPathname })
+			return Object.assign(route, { pathRelative, pattern })
 		})
 		logRoutes(this.#routes)
 	}
@@ -306,7 +310,7 @@ class Router {
 			true
 		) {
 			const graph = await createGraph(
-				this.#routes.map(([path]) => new URL(path, root).href),
+				this.#routes.map(route => new URL(route.pathRelative, root).href),
 				{
 					...cache,
 					kind: "codeOnly",
@@ -400,12 +404,13 @@ class Router {
 
 		const handler = async (request: Request): Promise<Response> => {
 			const url = new URL(request.url)
-			for (const [path, route] of this.#routes) {
+			for (const route of this.#routes) {
 				const match = route.pattern.exec(url) ?? undefined
 				if (match) {
 					try {
 						const captured = match.pathname.groups
 						const pattern = new URLPattern(route.pattern)
+						const path = route.pathRelative
 						const response = await route({
 							request,
 							captured,
