@@ -121,9 +121,10 @@ const isRoutetslist = (value: unknown): value is Routetslist =>
 	value.every(
 		route =>
 			Array.isArray(route) &&
-			route.length === 2 &&
+			route.length === 3 &&
 			typeof route[0] === "string" &&
-			Route.isRoute(route[1]),
+			typeof route[1] === "string" &&
+			Route.isRoute(route[2]),
 	)
 
 const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.Routes> => {
@@ -166,7 +167,7 @@ const emit = async (root: URL, routes: Router.Routes, path: URL) => {
 				`[${JSON.stringify(route.pattern.pathname)}, ${JSON.stringify(
 					route.pathRelative,
 				)}, (await import(${JSON.stringify(
-					`./${encodeUriPathname(route.pathRelative)}`,
+					`./${encodeUriPathname(relative(from, new URL(route.pathRelative, root).pathname))}`,
 				)})).default]`,
 		)
 		.join(",\n\t")
