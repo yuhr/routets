@@ -142,19 +142,19 @@ const enumerate = async ({ root, pattern }: OptionsNormalized): Promise<Router.R
 				if (Number.isNaN(precedence)) throw new Error("`NaN` is not a valid precedence.")
 				if (Route.isRoute(route)) {
 					const pattern = new URLPattern({ pathname })
-					return Object.assign(route, { pathRelative, pattern, precedence })
+					return [precedence, Object.assign(route, { pathRelative, pattern })] as const
 				}
 			}
 			throw undefined
 		},
 	})
 	return [...distree]
-		.map(([, route]) => route)
-		.sort((routeA, routeB) => {
-			const precedence = routeB.precedence - routeA.precedence
-			if (precedence !== 0) return precedence
-			return compareByCodepoints(routeB.pattern.pathname, routeA.pattern.pathname)
-		})
+		.sort(
+			([, [precedenceA, routeA]], [, [precedenceB, routeB]]) =>
+				precedenceB - precedenceA ||
+				compareByCodepoints(routeB.pattern.pathname, routeA.pattern.pathname),
+		)
+		.map(([, [, route]]) => route)
 }
 
 const emit = async (root: URL, routes: Router.Routes, path: URL) => {
