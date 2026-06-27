@@ -16,6 +16,7 @@ const tryFindConfigCwd = async (pathToDenoManifest: string) => {
 const cwd = Deno.cwd()
 const toAbsolute = (path: string) => (isAbsolute(path) ? path : resolve(cwd, path))
 const toFileUrl = (path: string) => new URL(toAbsolute(path), "file:")
+const urlCwd = toFileUrl(cwd)
 
 const [first, ...rest] = Deno.args
 const argsRaw = first === marker ? rest : Deno.args
@@ -58,7 +59,10 @@ const { args, options } = await new Command()
 		"--port <port:number>",
 		"Specifies the port to serve at. Defaulting to the first available port between 8000–65535. When a value is given but unavailable, it simply throws."
 	)
-	.option("--init [template:string]", "Creates a new routets project under the current directory.")
+	.option(
+		"--init [template:string]",
+		"Creates a new routets project under the current directory. By default, it writes to the current directory; to specify target directory, pass `--write` option as relative path to the current directory. You can also specify a custom `--suffix`."
+	)
 	.helpOption("--help", "Shows this help.", { prepend: false })
 	.parse(argsRaw)
 const {
@@ -96,11 +100,40 @@ if (import.meta.main && Deno.args[0] !== marker) {
 	Deno.exit((await process.status).code)
 } else {
 	if (init) {
-		const templates = (
-			await Array.fromAsync(Deno.readDir(new URL(import.meta.resolve("./templates")).pathname))
-		).flatMap(dirEntry => (dirEntry.isDirectory ? [dirEntry.name] : []))
-		if (templates.includes(init)) {
-			console.log("success")
+		const { join } = await import("https://esm.sh/jsr/@std/path@1.1.5/join.ts")
+		const { exists } = await import("https://esm.sh/jsr/@std/fs@1.0.24/exists.ts")
+		const { Confirm } = await import("https://esm.sh/jsr/@cliffy/prompt@1.0.0-rc.7/confirm.ts")
+		const urlTemplates = new URL(import.meta.resolve("./templates"))
+		const templates = (await Array.fromAsync(Deno.readDir(urlTemplates))).flatMap(dirEntry =>
+			dirEntry.isDirectory ? [dirEntry.name] : []
+		)
+		const template = init === true ? "default" : init
+		if (templates.includes(template)) {
+			const copyDirectory = async (src: URL, dst: URL) => {
+				await Deno.mkdir(dst, { recursive: true })
+				for await (const item of Deno.readDir(src)) {
+					const copy = item.isDirectory ? copyDirectory : Deno.copyFile
+					const urlSrc = toFileUrl(join(src, item.name))
+					const urlDst = toFileUrl(join(dst, item.name))
+					if (await exists(urlDst)) {
+						const overwrite = await Confirm.prompt(`\`${urlDst.href}\` already exists; overwrite?`)
+						if (!overwrite) continue
+					}
+					if (item.isFile) {
+						urlDst.pathname = urlDst.pathname.replace(/\.route\.(tsx?)$/, `.${suffix}.$1`)
+					}
+					await copy(urlSrc, urlDst)
+					if (item.isFile && item.name === ".gitignore") {
+						let content = await Deno.readTextFile(urlDst)
+						content += `\n!*.${suffix}.ts`
+						content += `\n!*.${suffix}.tsx`
+						await Deno.writeTextFile(urlDst, content)
+					}
+				}
+			}
+			const urlTemplate = toFileUrl(join(urlTemplates, template))
+			const urlDst = writeSpecified ? toFileUrl(join(urlCwd, writeSpecified)) : urlCwd
+			await copyDirectory(urlTemplate, urlDst)
 		} else throw new Error(`Unknown template type: ${init}`)
 	} else {
 		try {

@@ -1,0 +1,11 @@
+{
+	"lock": false,
+	"compilerOptions": {
+		"jsx": "react-jsx",
+		"jsxImportSource": "react",
+		"strict": true,
+		"exactOptionalPropertyTypes": true,
+		"noUncheckedIndexedAccess": true
+	},
+	"importMap": "import-map.json"
+}
