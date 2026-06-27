@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: CC0-1.0
 
-import Router from "../src/Router.ts"
+import Router from "routets/Router.ts"
 
-await Deno.serve(new Router({ root: ".", watch: true, write: "serve.gen.ts" })).finished
+await Deno.serve(
+	new Router({
+		root: ".",
+		watch: ["components"],
+		write: "serve.gen.ts",
+		importMap: "import-map.json",
+	})
+).finished
