@@ -17,16 +17,11 @@ class RouteModule extends Route {
 			const { request, root, importMap } = context
 			const { transformer = ({ content }) => content } = options
 			const specifierOriginal = context.captured["specifier"]!
-			const specifier =
-				resolve(specifierOriginal, importMap, root).resolvedImport ?? new URL(specifierOriginal)
+			const specifier = resolve(specifierOriginal, importMap, root).resolvedImport!
 			switch (request.method) {
 				case "HEAD":
 				case "GET": {
-					// TODO: use cache
-					const content =
-						specifier.protocol === "file:"
-							? await Deno.readTextFile(specifier)
-							: await (await fetch(specifier)).text()
+					const content = await Deno.readTextFile(specifier)
 					const transformed = await transformer({ specifier, importMap, content })
 					return new Response(transformed, {
 						headers: {

@@ -6,6 +6,7 @@ await Deno.serve(
 	new Router({
 		root: ".",
 		watch: ["components"],
+		write: "serve.gen.ts",
 		importMap: "import-map.json",
 	})
 ).finished

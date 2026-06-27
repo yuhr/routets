@@ -7,8 +7,5 @@
 		"exactOptionalPropertyTypes": true,
 		"noUncheckedIndexedAccess": true
 	},
-	"importMap": "import-map.json",
-	"tasks": {
-		"serve": "deno run -A serve.ts"
-	}
+	"importMap": "import-map.json"
 }
