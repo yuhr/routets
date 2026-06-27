@@ -55,6 +55,16 @@ import Router from "https://deno.land/x/routets/Router.ts"
 await Deno.serve(new Router({ root: ".", watch: true })).finished
 ```
 
+## Scaffolding
+
+`routets` CLI provides a project initializer via `--init` option. Templates are listed in [the `templates` directory](./src/templates). You can specify target directory by `--write` option (CWD by default), and a [custom route suffix](#changing-suffix) by `--suffix` option.
+
+```sh
+routets --init react --write . --suffix route
+```
+
+We don't support [`deno create` facility](https://docs.deno.com/runtime/reference/cli/create/), because it only supports npm and JSR, but we prefer HTTPS imports and [JSR prohibits them](https://github.com/jsr-io/jsr/issues/735).
+
 ## Advanced Usage
 
 ### Dynamic Routes
